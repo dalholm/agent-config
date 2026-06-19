@@ -69,6 +69,22 @@ det som går att skripta och skriver ut resten:
 
 Pi har dessutom sitt *eget* skill-system (pi-hermes), skilt från Superpowers — se `pi/`.
 
+### Auto-godkänn (agenterna agerar utan att fråga)
+
+Scriptet sätter också "fråga aldrig"-läge i varje harness (mergas in i respektive
+config — kan inte symlänkas eftersom filerna håller maskin-state som tema/auth):
+
+| Harness | Fil | Nyckel |
+|---------|-----|--------|
+| Claude Code | `~/.claude/settings.json` | `permissions.defaultMode = "bypassPermissions"` |
+| Codex | `~/.codex/config.toml` | `approval_policy = "never"` + `sandbox_mode = "danger-full-access"` |
+| OpenCode | `~/.config/opencode/opencode.jsonc` | `permission.{edit,bash,webfetch} = "allow"` |
+| Pi | `~/.pi/agent/settings.json` | `defaultProjectTrust = "always"` |
+
+> ⚠️ Detta tar bort bekräftelse-grindarna helt — agenterna kör shell, redigerar filer
+> och hämtar nät utan att fråga. Avsett för en betrodd, personlig maskin. Ångra genom
+> att sätta tillbaka `default`/`ask`/`on-request` i respektive fil.
+
 ## Innehåll
 
 - `AGENTS.md` — sanningskälla (router + kontrollant + autonomt läge + roller/modell-tiers).

@@ -215,5 +215,74 @@ fi
 say "  codex — run in a Codex CLI session: /plugins  (search 'superpowers' -> Install)"
 say ""
 
+say "Permissions (auto-approve — agents act without asking):"
+# These configs hold machine state (theme/auth), so they can't be symlinked — we merge
+# the one key each harness uses to stop prompting. Idempotent and reversible.
+
+# Claude Code: bypass all permission prompts.
+if have jq; then
+  CSET="$HOME/.claude/settings.json"
+  run "mkdir -p '$HOME/.claude'"
+  if [ "$DRY_RUN" = 1 ]; then
+    say "  would: set permissions.defaultMode=bypassPermissions in $CSET"
+  else
+    [ -f "$CSET" ] || echo '{}' > "$CSET"
+    tmp="$(mktemp)"
+    jq '.permissions = (.permissions // {}) | .permissions.defaultMode = "bypassPermissions"' \
+      "$CSET" > "$tmp" && mv "$tmp" "$CSET"
+    say "  claude: permissions.defaultMode = bypassPermissions"
+  fi
+else
+  say "  jq not found — set \"permissions\":{\"defaultMode\":\"bypassPermissions\"} in ~/.claude/settings.json"
+fi
+
+# Codex: never ask + full access. These are top-level TOML keys, so they MUST precede
+# any [table] header — prepend rather than append.
+CXT="$HOME/.codex/config.toml"
+if [ -f "$CXT" ] && grep -q '^approval_policy' "$CXT"; then
+  say "  ok (codex approval_policy already set)"
+elif [ "$DRY_RUN" = 1 ]; then
+  say "  would: prepend approval_policy=never, sandbox_mode=danger-full-access to $CXT"
+else
+  run "mkdir -p '$HOME/.codex'"
+  tmp="$(mktemp)"
+  { printf 'approval_policy = "never"\nsandbox_mode = "danger-full-access"\n\n'
+    [ -f "$CXT" ] && cat "$CXT"; } > "$tmp" && mv "$tmp" "$CXT"
+  say "  codex: approval_policy=never, sandbox_mode=danger-full-access"
+fi
+
+# OpenCode: allow the gated tools. opencode.jsonc is JSON-clean today; if comments are
+# added later jq can't parse it, so we detect and fall back to a manual hint.
+OCJ="$HOME/.config/opencode/opencode.jsonc"
+if have jq && [ -f "$OCJ" ]; then
+  if [ "$DRY_RUN" = 1 ]; then
+    say "  would: set permission.{edit,bash,webfetch}=allow in $OCJ"
+  elif jq -e . "$OCJ" >/dev/null 2>&1; then
+    tmp="$(mktemp)"
+    jq '.permission = ((.permission // {}) + {edit:"allow",bash:"allow",webfetch:"allow"})' \
+      "$OCJ" > "$tmp" && mv "$tmp" "$OCJ"
+    say "  opencode: permission edit/bash/webfetch = allow"
+  else
+    say "  opencode: $OCJ has comments jq can't parse — set permission block manually"
+  fi
+else
+  say "  opencode config not found (or no jq) — skipping"
+fi
+
+# Pi: trust projects automatically (its only persistent no-prompt knob).
+if have jq; then
+  PIS="$HOME/.pi/agent/settings.json"
+  run "mkdir -p '$HOME/.pi/agent'"
+  if [ "$DRY_RUN" = 1 ]; then
+    say "  would: set defaultProjectTrust=always in $PIS"
+  else
+    [ -f "$PIS" ] || echo '{}' > "$PIS"
+    tmp="$(mktemp)"
+    jq '.defaultProjectTrust = "always"' "$PIS" > "$tmp" && mv "$tmp" "$PIS"
+    say "  pi: defaultProjectTrust = always"
+  fi
+fi
+say ""
+
 say "Done. Restart your agent so it re-reads global config."
 say "First Pi run: '/memory-index-sessions' to index past sessions for search."
