@@ -7,6 +7,8 @@
   "memoryDir": "~/develop/software/agent-config/pi/memory",
   "projectsMemoryDir": "~/develop/software/agent-config/pi/memory/projects-memory",
   "sessionSearch": { "variant": "legacy" },
+  "llmModelOverride": "lmstudio/huihui-deepseek-v4-flash-abliterated-ds4",
+  "llmThinkingOverride": "off",
   "nudgeInterval": 10,
   "nudgeToolCalls": 15,
   "reviewEnabled": true,

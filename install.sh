@@ -85,8 +85,11 @@ else
 fi
 say ""
 
-say "Pi hermes-memory:"
-# Config lives at a fixed path; symlink it out so editing it in the repo is live.
+say "Pi:"
+# Configs live at fixed paths under ~/.pi/agent; symlink them out so editing in the
+# repo is live. models.json defines local providers (LM Studio); hermes config drives
+# persistent memory.
+link "$REPO/pi/models.json" "$HOME/.pi/agent/models.json"
 link "$REPO/pi/hermes-memory-config.json" "$HOME/.pi/agent/hermes-memory-config.json"
 # Data dir is redirected into the repo via memoryDir in the config — just ensure it exists.
 run "mkdir -p '$REPO/pi/memory/skills' '$REPO/pi/memory/projects-memory'"
