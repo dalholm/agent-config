@@ -49,6 +49,26 @@ Det **bootstrappar** också verktygen configen förutsätter (om de saknas): ins
 Node/npm (via Homebrew), Pi (via `pi.dev/install.sh`) och pi-hermes-memory-extensionen.
 Stäng av med `--no-bootstrap`.
 
+**Superpowers** stödjer flera harness. Hur det installeras skiljer sig — scriptet kör
+det som går att skripta och skriver ut resten:
+
+| Harness | Hur | Skriptbart? |
+|---------|-----|-------------|
+| OpenCode | läggs i `plugin[]` i `opencode.jsonc` | ✅ scriptet mergar in det |
+| Pi | `pi install git:github.com/obra/superpowers` | ✅ scriptet kör det (kräver Pi) |
+| Claude Code | `/plugin`-slash i en session | ❌ scriptet skriver ut raderna |
+| Codex CLI | `/plugins`-slash i en session | ❌ scriptet skriver ut steget |
+
+```
+# Claude (i en Claude Code-session):
+/plugin marketplace add obra/superpowers-marketplace
+/plugin install superpowers@superpowers-marketplace
+# Codex (i en Codex CLI-session):
+/plugins   # sök "superpowers" -> Install
+```
+
+Pi har dessutom sitt *eget* skill-system (pi-hermes), skilt från Superpowers — se `pi/`.
+
 ## Innehåll
 
 - `AGENTS.md` — sanningskälla (router + kontrollant + autonomt läge + roller/modell-tiers).
@@ -62,7 +82,7 @@ Stäng av med `--no-bootstrap`.
   injicerar router-direktivet varje tur (bara Claude Code).
 - `hooks/settings-snippet.json` — hook-config att klistra in manuellt vid behov.
 - `install.sh` — symlinkar instruktionsfiler + alla skills, hooken, samt Pi-configen;
-  bootstrappar Node/Pi/hermes-extensionen om de saknas.
+  bootstrappar Node/Pi/hermes-extensionen om de saknas och pekar ut Superpowers-installen.
 - `pi/` — Pi-harness-tillägg. `hermes-memory-config.json` (symlänkas ut) + `memory/`
   (persistent minne, skills, sessionssök; `memoryDir` pekar hit). Se `pi/README.md`.
 

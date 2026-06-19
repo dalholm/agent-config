@@ -7,7 +7,8 @@
 # edit AGENTS.md. Existing files are backed up first.
 #
 # It also bootstraps the tools the config assumes: it installs Pi, Node/npm and the
-# pi-hermes-memory extension if they're missing.
+# pi-hermes-memory extension if they're missing, and sets up Superpowers per harness
+# (scripted for OpenCode/Pi, printed as slash-command steps for Claude Code/Codex).
 #
 # Usage:
 #   ./install.sh             # do it
@@ -166,5 +167,53 @@ else
   say "  pi not on PATH — open a new shell, then install each: $PI_PACKAGES"
 fi
 say ""
+
+say "Superpowers (cross-harness skills framework):"
+# Superpowers supports many harnesses. OpenCode (a config edit) and Pi (a CLI command)
+# can be scripted; Claude Code and Codex install via in-session slash commands, so for
+# those we just print the steps.
+
+# OpenCode: add the plugin to opencode.jsonc's plugin[] array (idempotent).
+SP_OC="superpowers@git+https://github.com/obra/superpowers.git"
+OCJ="$HOME/.config/opencode/opencode.jsonc"
+if have jq && [ -f "$OCJ" ]; then
+  if grep -q 'obra/superpowers' "$OCJ"; then
+    say "  ok (opencode: superpowers already in plugin[])"
+  elif [ "$DRY_RUN" = 1 ]; then
+    say "  would: add superpowers to plugin[] in $OCJ"
+  elif jq -e . "$OCJ" >/dev/null 2>&1; then
+    tmp="$(mktemp)"
+    jq --arg p "$SP_OC" '.plugin = ((.plugin // []) + [$p])' "$OCJ" > "$tmp" && mv "$tmp" "$OCJ"
+    say "  opencode: added superpowers to plugin[]"
+  else
+    say "  opencode: $OCJ has comments jq can't parse — add \"$SP_OC\" to plugin[] manually"
+  fi
+fi
+
+# Pi: install from git (network op — gated behind bootstrap like the other installs).
+if have pi; then
+  if pi list 2>/dev/null | grep -q 'superpowers'; then
+    say "  ok (pi: superpowers already installed)"
+  elif [ "$BOOTSTRAP" = 1 ]; then
+    say "  installing for pi: pi install git:github.com/obra/superpowers"
+    run "pi install git:github.com/obra/superpowers"
+  else
+    say "  pi: run 'pi install git:github.com/obra/superpowers'"
+  fi
+else
+  say "  pi: not on PATH yet — later run 'pi install git:github.com/obra/superpowers'"
+fi
+
+# Claude Code + Codex: in-session slash commands — can't be scripted from a shell.
+if grep -q 'superpowers' "$HOME/.claude/plugins/known_marketplaces.json" 2>/dev/null; then
+  say "  ok (claude: superpowers marketplace already added)"
+else
+  say "  claude — run in a Claude Code session:"
+  say "    /plugin marketplace add obra/superpowers-marketplace"
+  say "    /plugin install superpowers@superpowers-marketplace"
+fi
+say "  codex — run in a Codex CLI session: /plugins  (search 'superpowers' -> Install)"
+say ""
+
 say "Done. Restart your agent so it re-reads global config."
 say "First Pi run: '/memory-index-sessions' to index past sessions for search."
