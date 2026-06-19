@@ -145,6 +145,26 @@ if have pi; then
 else
   say "  pi not found on PATH — open a new shell, then: pi install npm:pi-hermes-memory"
 fi
+
+# Additional Pi extensions. Quality gates (lens/simplify), model-tiered subagents,
+# research (web-access), MCP bridge, interactive prompts (ask-user/goal), and
+# robustness for local LM Studio runs (lean-ctx/retry/handoff-rebase). See pi/README.md
+# for why each is here. Same idempotent pattern as hermes-memory above.
+PI_PACKAGES="pi-subagents pi-lens pi-lean-ctx pi-web-access pi-goal pi-ask-user pi-simplify pi-mcp-adapter pi-retry pi-handoff-rebase"
+if have pi; then
+  for pkg in $PI_PACKAGES; do
+    if pi list 2>/dev/null | grep -q "$pkg"; then
+      say "  ok (extension already installed): $pkg"
+    elif [ "$BOOTSTRAP" = 1 ]; then
+      say "  installing extension: pi install npm:$pkg"
+      run "pi install npm:$pkg"
+    else
+      say "  extension not installed — run: pi install npm:$pkg"
+    fi
+  done
+else
+  say "  pi not on PATH — open a new shell, then install each: $PI_PACKAGES"
+fi
 say ""
 say "Done. Restart your agent so it re-reads global config."
 say "First Pi run: '/memory-index-sessions' to index past sessions for search."
