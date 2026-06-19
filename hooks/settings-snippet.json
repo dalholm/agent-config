@@ -1,0 +1,15 @@
+{
+  "_comment": "Merge this into ~/.claude/settings.json. install.sh does this automatically if jq is installed. Replace the path if you cloned the repo elsewhere.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/develop/software/agent-setup/hooks/router-reminder.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
