@@ -1,4 +1,4 @@
-# agent-setup
+# agent-config
 
 Mina globala instruktioner för AI-kodningsagenter. Styr **hur mycket** av
 [Superpowers](https://github.com/obra/superpowers) som ska aktiveras per uppgift, så
@@ -12,6 +12,12 @@ visar sig växa. Ceremonin (brainstorm/spec/plan/subagenter) skalas; kvalitetsgr
 (framför allt TDD) behålls. Allt ligger **ovanpå** Superpowers och vinner via prioritet:
 **mina instruktioner > Superpowers-skills > systemprompt.**
 
+För **autonoma (T3) körningar** finns två roller som gör hands-off säkert:
+**preference-oracle** svarar på återkommande lågrisk-frågor åt mig (utifrån
+`preferences.md`) och eskalerar resten; **goal-watcher** vakar på att arbetet inte
+driver från specen. Båda kör på stark modell; mekaniska implementer-subagenter kör
+billigt. Se "Roller & modell-tiers" i `AGENTS.md`.
+
 ## En sanningskälla
 
 `AGENTS.md` är hela innehållet. Alla harness pekas mot den:
@@ -21,9 +27,11 @@ visar sig växa. Ceremonin (brainstorm/spec/plan/subagenter) skalas; kvalitetsgr
 | Claude Code | `~/.claude/CLAUDE.md` | symlink → `AGENTS.md` |
 | Gemini CLI | `~/.gemini/GEMINI.md` | symlink → `AGENTS.md` |
 | Codex | `~/.codex/AGENTS.md` | symlink → `AGENTS.md` |
+| Pi | `~/.pi/agent/` | se `pi/` (instruktioner inline i `AGENTS.md` + hermes-memory) |
 
-Eftersom en symlink behåller sitt eget filnamn får alla tre exakt samma innehåll. Du
-redigerar bara `AGENTS.md`.
+Eftersom en symlink behåller sitt eget filnamn får alla tre instruktionsfilerna exakt
+samma innehåll. Du redigerar bara `AGENTS.md`. Pi-specifika tillägg (persistent minne)
+lever i `pi/` — se `pi/README.md`.
 
 ## Installera
 
@@ -38,14 +46,19 @@ annars skrivs manuell instruktion ut). Starta om agenten efteråt.
 
 ## Innehåll
 
-- `AGENTS.md` — sanningskälla (router + kontrollant + spår).
+- `AGENTS.md` — sanningskälla (router + kontrollant + autonomt läge + roller/modell-tiers).
 - `CLAUDE.md`, `GEMINI.md` — tunna pekare (`@./AGENTS.md`) för manuell kopiering om du
   inte vill symlinka.
+- `preferences.md` — mina stående preferenser; preference-oracle svarar utifrån denna. Fyll i den.
 - `skills/complexity-router/SKILL.md` — router som riktig Claude Code-skill.
+- `skills/goal-watcher/SKILL.md` — drift-väktare för autonoma körningar.
+- `skills/preference-oracle/SKILL.md` — svarar på lågrisk-frågor åt mig, eskalerar resten.
 - `hooks/router-reminder.sh` — UserPromptSubmit-hook, det deterministiska lagret som
   injicerar router-direktivet varje tur (bara Claude Code).
 - `hooks/settings-snippet.json` — hook-config att klistra in manuellt vid behov.
-- `install.sh` — symlink- och hook-installation.
+- `install.sh` — symlinkar instruktionsfiler + alla skills, hooken, samt Pi-configen.
+- `pi/` — Pi-harness-tillägg. `hermes-memory-config.json` (symlänkas ut) + `memory/`
+  (persistent minne, skills, sessionssök; `memoryDir` pekar hit). Se `pi/README.md`.
 
 ## Lager av styrka
 

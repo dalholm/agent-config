@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/develop/software/agent-setup/hooks/router-reminder.sh"
+            "command": "$HOME/develop/software/agent-config/hooks/router-reminder.sh"
           }
         ]
       }

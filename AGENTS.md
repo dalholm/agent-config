@@ -81,7 +81,41 @@ off the **quality gates**.
 
 ---
 
-## 3. Interaction with Superpowers
+## 3. Autonomous mode (T3 hands-off)
+
+When the user asks for hands-off / autonomous work, T3 runs continuously. To stay safe:
+
+- **Preconditions:** an approved plan exists, and work is on its own branch/worktree —
+  never autonomous on main.
+- **Controller changes behaviour:** do NOT stop-and-ask at every tripwire (that kills
+  autonomy). Self-resolve via the Superpowers BLOCKED protocol (more context → stronger
+  model → break the task down). Escalate to the human ONLY for a genuine dead-end or a
+  **fundamental scope change**.
+- **Quality gates stay on:** TDD + review between tasks, always.
+- **Stop conditions:** all plan tasks done, an unresolvable BLOCKED, or a scope change.
+- **Report back:** what was built, what was skipped, what needs your eyes.
+- Keep the loop **plan-bounded** (a finite task list). No open-ended "keep improving"
+  loops.
+
+Two roles make autonomy safe — see their skills for detail:
+`preference-oracle` answers recurring low-stakes questions on the user's behalf and
+escalates the rest; `goal-watcher` guards against drift from the spec.
+
+## 4. Roles & model tiers
+
+Use the cheapest model that can do each role (Superpowers' own guidance).
+
+| Role | Model tier | Why |
+|------|-----------|-----|
+| **goal-watcher**, **preference-oracle** | strong (e.g. Claude Sonnet/Opus) | Judgment & alignment calls |
+| Architecture, design, final review | strong | Broad reasoning |
+| Integration / multi-file / debugging | standard | Coordination |
+| Mechanical implementer (1–2 files, clear spec) | cheap/fast (Haiku or local) | Most impl is mechanical |
+
+Model routing is harness-dependent: Claude Code can set a model per subagent; Codex /
+OpenCode set it in their own config. Treat this table as intent.
+
+## 5. Interaction with Superpowers
 
 Superpowers stays installed and unchanged. This file sits on top and decides how much
 of it activates per task. Priority order: **this file > Superpowers skills > system

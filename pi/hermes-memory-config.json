@@ -1,0 +1,19 @@
+{
+  "memoryMode": "policy-only",
+  "memoryPolicyStyle": "full",
+  "memoryCharLimit": 5000,
+  "userCharLimit": 5000,
+  "projectCharLimit": 5000,
+  "memoryDir": "~/develop/software/agent-config/pi/memory",
+  "projectsMemoryDir": "~/develop/software/agent-config/pi/memory/projects-memory",
+  "sessionSearch": { "variant": "legacy" },
+  "nudgeInterval": 10,
+  "nudgeToolCalls": 15,
+  "reviewEnabled": true,
+  "memoryOverflowStrategy": "auto-consolidate",
+  "autoConsolidate": true,
+  "correctionDetection": true,
+  "flushOnCompact": true,
+  "flushOnShutdown": true,
+  "flushMinTurns": 6
+}

@@ -1,2 +1,8 @@
 *.bak-*
 .DS_Store
+
+# Pi hermes-memory: SQLite session history is binary, large, and holds raw
+# conversation logs — keep it out of git. The markdown memory/skills are tracked.
+pi/memory/sessions.db
+pi/memory/sessions.db-wal
+pi/memory/sessions.db-shm

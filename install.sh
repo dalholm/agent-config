@@ -48,8 +48,12 @@ link "$REPO/AGENTS.md" "$HOME/.gemini/GEMINI.md"
 link "$REPO/AGENTS.md" "$HOME/.codex/AGENTS.md"
 say ""
 
-say "Claude Code skill:"
-link "$REPO/skills/complexity-router" "$HOME/.claude/skills/complexity-router"
+say "Claude Code skills:"
+for skill in "$REPO"/skills/*/; do
+  [ -d "$skill" ] || continue
+  name="$(basename "$skill")"
+  link "${skill%/}" "$HOME/.claude/skills/$name"
+done
 say ""
 
 say "Claude Code hook (UserPromptSubmit):"
@@ -80,4 +84,21 @@ else
   say "  (see hooks/settings-snippet.json; set command to: $HOOK)"
 fi
 say ""
+
+say "Pi hermes-memory:"
+# Config lives at a fixed path; symlink it out so editing it in the repo is live.
+link "$REPO/pi/hermes-memory-config.json" "$HOME/.pi/agent/hermes-memory-config.json"
+# Data dir is redirected into the repo via memoryDir in the config — just ensure it exists.
+run "mkdir -p '$REPO/pi/memory/skills' '$REPO/pi/memory/projects-memory'"
+if command -v pi >/dev/null 2>&1; then
+  if pi list 2>/dev/null | grep -q 'pi-hermes-memory'; then
+    say "  ok (extension already installed)"
+  else
+    say "  extension not installed — run: pi install npm:pi-hermes-memory"
+  fi
+else
+  say "  pi not found on PATH — install Pi, then: pi install npm:pi-hermes-memory"
+fi
+say ""
 say "Done. Restart your agent so it re-reads global config."
+say "First Pi run: 'pi install npm:pi-hermes-memory' then '/memory-index-sessions'."
