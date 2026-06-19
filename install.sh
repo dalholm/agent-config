@@ -6,20 +6,35 @@
 # instruction file to it, so the content is identical everywhere and you only ever
 # edit AGENTS.md. Existing files are backed up first.
 #
+# It also bootstraps the tools the config assumes: it installs Pi, Node/npm and the
+# pi-hermes-memory extension if they're missing.
+#
 # Usage:
-#   ./install.sh            # do it
-#   ./install.sh --dry-run  # show what would happen, change nothing
+#   ./install.sh             # do it
+#   ./install.sh --dry-run   # show what would happen, change nothing
+#   ./install.sh --no-bootstrap   # symlinks/hook only; never install external tools
 #
 set -euo pipefail
 
 DRY_RUN=0
-[ "${1:-}" = "--dry-run" ] && DRY_RUN=1
+BOOTSTRAP=1
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run)      DRY_RUN=1 ;;
+    --no-bootstrap) BOOTSTRAP=0 ;;
+  esac
+done
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
 say()  { printf '%s\n' "$*"; }
 run()  { if [ "$DRY_RUN" = 1 ]; then say "  would: $*"; else eval "$*"; fi; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# A freshly-installed pi (and friends) land in ~/.local/bin — put it on PATH so later
+# steps in this same run can see them without the user opening a new shell.
+export PATH="$HOME/.local/bin:$PATH"
 
 # link <target> <linkpath>
 link() {
@@ -40,7 +55,32 @@ link() {
 
 say "Repo: $REPO"
 [ "$DRY_RUN" = 1 ] && say "(dry run — no changes)"
+[ "$BOOTSTRAP" = 0 ] && say "(--no-bootstrap — symlinks/hook only, no tool installs)"
 say ""
+
+if [ "$BOOTSTRAP" = 1 ]; then
+  say "Tools (install if missing):"
+
+  # Node/npm — needed for the pi-hermes-memory npm extension.
+  if have node && have npm; then
+    say "  ok: node/npm present"
+  elif have brew; then
+    say "  node/npm missing — installing via Homebrew"
+    run "brew install node"
+  else
+    say "  node/npm missing and Homebrew not found — install Node manually: https://nodejs.org"
+  fi
+
+  # Pi — the coding agent itself (separate from the hermes-memory extension below).
+  if have pi; then
+    say "  ok: pi present"
+  else
+    say "  pi missing — installing via pi.dev"
+    run "curl -fsSL https://pi.dev/install.sh | sh"
+    have pi && say "  pi installed" || say "  pi installed — open a new shell if 'pi' isn't found yet"
+  fi
+  say ""
+fi
 
 say "Instruction files (all -> AGENTS.md):"
 link "$REPO/AGENTS.md" "$HOME/.claude/CLAUDE.md"
@@ -93,15 +133,18 @@ link "$REPO/pi/models.json" "$HOME/.pi/agent/models.json"
 link "$REPO/pi/hermes-memory-config.json" "$HOME/.pi/agent/hermes-memory-config.json"
 # Data dir is redirected into the repo via memoryDir in the config — just ensure it exists.
 run "mkdir -p '$REPO/pi/memory/skills' '$REPO/pi/memory/projects-memory'"
-if command -v pi >/dev/null 2>&1; then
+if have pi; then
   if pi list 2>/dev/null | grep -q 'pi-hermes-memory'; then
     say "  ok (extension already installed)"
+  elif [ "$BOOTSTRAP" = 1 ]; then
+    say "  installing extension: pi install npm:pi-hermes-memory"
+    run "pi install npm:pi-hermes-memory"
   else
     say "  extension not installed — run: pi install npm:pi-hermes-memory"
   fi
 else
-  say "  pi not found on PATH — install Pi, then: pi install npm:pi-hermes-memory"
+  say "  pi not found on PATH — open a new shell, then: pi install npm:pi-hermes-memory"
 fi
 say ""
 say "Done. Restart your agent so it re-reads global config."
-say "First Pi run: 'pi install npm:pi-hermes-memory' then '/memory-index-sessions'."
+say "First Pi run: '/memory-index-sessions' to index past sessions for search."

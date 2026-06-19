@@ -36,13 +36,18 @@ lever i `pi/` — se `pi/README.md`.
 ## Installera
 
 ```sh
-./install.sh --dry-run   # se vad som händer, ändrar inget
-./install.sh             # kör (befintliga filer säkerhetskopieras till .bak-<datum>)
+./install.sh --dry-run        # se vad som händer, ändrar inget
+./install.sh                  # kör (befintliga filer säkerhetskopieras till .bak-<datum>)
+./install.sh --no-bootstrap   # bara symlänkar/hook — installera inga externa verktyg
 ```
 
 Scriptet symlinkar instruktionsfilerna, lägger Claude Code-skillen i
 `~/.claude/skills/`, och fogar in hooken i `~/.claude/settings.json` (kräver `jq`,
 annars skrivs manuell instruktion ut). Starta om agenten efteråt.
+
+Det **bootstrappar** också verktygen configen förutsätter (om de saknas): installerar
+Node/npm (via Homebrew), Pi (via `pi.dev/install.sh`) och pi-hermes-memory-extensionen.
+Stäng av med `--no-bootstrap`.
 
 ## Innehåll
 
@@ -56,7 +61,8 @@ annars skrivs manuell instruktion ut). Starta om agenten efteråt.
 - `hooks/router-reminder.sh` — UserPromptSubmit-hook, det deterministiska lagret som
   injicerar router-direktivet varje tur (bara Claude Code).
 - `hooks/settings-snippet.json` — hook-config att klistra in manuellt vid behov.
-- `install.sh` — symlinkar instruktionsfiler + alla skills, hooken, samt Pi-configen.
+- `install.sh` — symlinkar instruktionsfiler + alla skills, hooken, samt Pi-configen;
+  bootstrappar Node/Pi/hermes-extensionen om de saknas.
 - `pi/` — Pi-harness-tillägg. `hermes-memory-config.json` (symlänkas ut) + `memory/`
   (persistent minne, skills, sessionssök; `memoryDir` pekar hit). Se `pi/README.md`.
 
