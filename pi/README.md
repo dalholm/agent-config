@@ -9,13 +9,13 @@ min agent-config:
   sessionssök och secret-scanning (`hermes-memory-config.json` + `memory/`).
 - **Extensions** (installeras av `install.sh`, se `PI_PACKAGES` där). Valda för att
   aktivera AGENTS.md-filosofin utan att duplicera router/controller-flödet:
-  - `pi-subagents` — task-delegering med model-tiers (AGENTS.md §4).
+  - `pi-subagents` — task-delegering med model-tiers (AGENTS.md §5).
   - `pi-lens` — realtids-LSP/linter/formatter (TDD-grinden, §2).
   - `pi-simplify` — code review för klarhet/underhållbarhet (self-review-grinden).
   - `pi-lean-ctx` — token-effektiv bash/read/grep-routing; viktigast för lokal körning.
   - `pi-web-access` — web search + URL/PDF fetch (för `deep-research`).
   - `pi-mcp-adapter` — MCP-brygga.
-  - `pi-goal` — goal-driven completion (stödjer `goal-watcher`, §3).
+  - `pi-goal` — goal-driven completion (stödjer `goal-watcher`, §4).
   - `pi-ask-user` — strukturerade frågor (human-gate / `preference-oracle`).
   - `pi-retry` — retry-hantering; lokala LM Studio-servrar kan timeouta.
   - `pi-handoff-rebase` — context-komprimering vid handoff (snäv lokal context).
@@ -46,8 +46,9 @@ och dess server (port 1234), kör `pi`, välj modell med `/model`.
 Två mekanismer, en för varje sorts fil:
 
 - **Config-filen** ligger på en fast sökväg (`~/.pi/agent/hermes-memory-config.json`)
-  och **symlänkas** ut från `pi/hermes-memory-config.json` av `install.sh` — samma
-  mönster som `AGENTS.md`. Redigera filen i repot = den är live.
+  och **renderas** från `pi/hermes-memory-config.json` av `install.sh`. Template-filen
+  använder `__REPO__`, så `memoryDir` och `projectsMemoryDir` pekar på den checkout där
+  du kör installern. Redigera template-filen i repot och kör `../install.sh` igen.
 - **Datan** (MEMORY.md, USER.md, skills/, projects-memory/) styrs av `memoryDir` /
   `projectsMemoryDir` i configen, som pekar in i `pi/memory/`. Ingen per-fil-symlänk
   behövs för en katalog extensionen skriver till konstant.
@@ -66,7 +67,7 @@ Två mekanismer, en för varje sorts fil:
 
 > OBS: två sorters skills möts i Pi. `memory/skills/` är **hermes-memory**s egna
 > (procedurer agenten sparar, i `memoryDir`). Repots `../skills/` (complexity-router,
-> goal-watcher, preference-oracle) registreras dessutom i Pi via `"skills"[]` i
+> ponytail, goal-watcher, preference-oracle) registreras dessutom i Pi via `"skills"[]` i
 > `~/.pi/agent/settings.json` — samma katalog Claude använder, ingen kopia — så de
 > triggar i Pi precis som i Claude Code. `complexity-router` är den som avgör om/hur
 > mycket en uppgift går genom Superpowers.
@@ -87,5 +88,5 @@ Två mekanismer, en för varje sorts fil:
 
 ## Om du flyttar repot
 
-`memoryDir`/`projectsMemoryDir` i configen är hårdkodade till
-`~/develop/software/agent-config/pi/memory`. Flyttar du repot — ändra de två raderna.
+`memoryDir`/`projectsMemoryDir` renderas från `__REPO__` när `../install.sh` körs.
+Flyttar du repot, kör installern igen från den nya platsen.

@@ -8,9 +8,11 @@
 # context for that turn. Keep it short to conserve tokens.
 
 cat <<'EOF'
-[router] Before any build/code/fix work, FIRST classify task complexity and pick a
-track (T0 trivial → T3 full Superpowers) per AGENTS.md. Announce it in one line.
-Bias to the heavier track when unsure. Keep TDD on. Escalate a track mid-task if the
+[router] First decide whether this is only a question. If yes, answer directly as T0
+and do not enter a code/change workflow. For build/code/fix/change work, classify task
+complexity and pick a track (T0 trivial → T3 full Superpowers) per AGENTS.md. Announce
+it in one line. Bias heavier when unsure. Keep TDD for behavior changes; use dry-run or
+syntax/grep verification for pure docs/config/prompt changes. Escalate mid-task if the
 work grows (more files than assumed, hard-to-write test, unplanned design decision).
 EOF
 

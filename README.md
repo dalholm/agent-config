@@ -39,11 +39,13 @@ lever i `pi/` — se `pi/README.md`.
 ./install.sh --dry-run        # se vad som händer, ändrar inget
 ./install.sh                  # kör (befintliga filer säkerhetskopieras till .bak-<datum>)
 ./install.sh --no-bootstrap   # bara symlänkar/hook — installera inga externa verktyg
+./install.sh --safe-profile   # behåll prompts/sandboxing i stället för auto-godkänn
 ```
 
 Scriptet symlinkar instruktionsfilerna, lägger skills i `~/.claude/skills/` och
-`~/.codex/skills/`, och fogar in hooken i `~/.claude/settings.json` (kräver `jq`,
-annars skrivs manuell instruktion ut). Starta om agenten efteråt.
+`~/.codex/skills/`, fogar in hooken i `~/.claude/settings.json` (kräver `jq`,
+annars skrivs manuell instruktion ut), och renderar Pi memory-configen med den
+aktuella repo-sökvägen. Starta om agenten efteråt.
 
 Det **bootstrappar** också verktygen configen förutsätter (om de saknas): installerar
 Node/npm (via Homebrew), Pi (via `pi.dev/install.sh`) och pi-hermes-memory-extensionen.
@@ -67,11 +69,26 @@ det som går att skripta och skriver ut resten:
 /plugins   # sök "superpowers" -> Install
 ```
 
+**Ponytail** körs som ett separat lager ovanpå/innanför Superpowers: Superpowers väljer
+processen, Ponytail pressar implementation och review mot minsta korrekta diff. Reglerna
+ligger redan i `AGENTS.md` och `skills/ponytail/`; installern pekar dessutom ut
+plugin-install där harnesset stödjer det.
+
 Pi har dessutom sitt *eget* skill-system (pi-hermes), skilt från Superpowers — se `pi/`.
 
-### Auto-godkänn (agenterna agerar utan att fråga)
+### Permissions-profiler
 
-Scriptet sätter också "fråga aldrig"-läge i varje harness (mergas in i respektive
+Default är **auto-approve**: agenterna agerar utan att fråga. För okända repos eller
+lägen där du vill ha prompts/sandboxing, kör:
+
+```sh
+./install.sh --safe-profile
+```
+
+`--safe-profile` installerar samma instruktioner/skills men sätter permission-nycklarna
+till prompt/sandbox-läge i stället för full bypass.
+
+Defaultprofilen sätter "fråga aldrig"-läge i varje harness (mergas in i respektive
 config — kan inte symlänkas eftersom filerna håller maskin-state som tema/auth):
 
 | Harness | Fil | Nyckel |
@@ -83,7 +100,8 @@ config — kan inte symlänkas eftersom filerna håller maskin-state som tema/au
 
 > ⚠️ Detta tar bort bekräftelse-grindarna helt — agenterna kör shell, redigerar filer
 > och hämtar nät utan att fråga. Avsett för en betrodd, personlig maskin. Ångra genom
-> att sätta tillbaka `default`/`ask`/`on-request` i respektive fil.
+> att köra `./install.sh --safe-profile` eller sätta tillbaka
+> `default`/`ask`/`on-request` i respektive fil.
 
 ## Innehåll
 
@@ -92,6 +110,8 @@ config — kan inte symlänkas eftersom filerna håller maskin-state som tema/au
   inte vill symlinka.
 - `preferences.md` — mina stående preferenser; preference-oracle svarar utifrån denna. Fyll i den.
 - `skills/complexity-router/SKILL.md` — router som riktig skill där harnesset stödjer det.
+- `skills/ponytail/SKILL.md` — Ponytail-inspirerad minimalitetsdisciplin: YAGNI,
+  stdlib/native först, minsta korrekta diff.
 - `skills/goal-watcher/SKILL.md` — drift-väktare för autonoma körningar.
 - `skills/preference-oracle/SKILL.md` — svarar på lågrisk-frågor åt mig, eskalerar resten.
 - `skills/web-research-fallback/SKILL.md` — stoppar gissningar och söker auktoritativa källor när lokal kontext inte räcker.
@@ -100,8 +120,9 @@ config — kan inte symlänkas eftersom filerna håller maskin-state som tema/au
 - `hooks/settings-snippet.json` — hook-config att klistra in manuellt vid behov.
 - `install.sh` — symlinkar instruktionsfiler + alla skills, hooken, samt Pi-configen;
   bootstrappar Node/Pi/hermes-extensionen om de saknas och pekar ut Superpowers-installen.
-- `pi/` — Pi-harness-tillägg. `hermes-memory-config.json` (symlänkas ut) + `memory/`
-  (persistent minne, skills, sessionssök; `memoryDir` pekar hit). Se `pi/README.md`.
+- `pi/` — Pi-harness-tillägg. `hermes-memory-config.json` (renderas vid install) +
+  `memory/` (persistent minne, skills, sessionssök; `memoryDir` renderas till aktuell
+  repo-path). Se `pi/README.md`.
 
 ## Lager av styrka
 

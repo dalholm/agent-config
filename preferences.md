@@ -16,7 +16,8 @@ the bottom). Write entries in any language; be specific.
 ## Conventions
 <!-- Code/style/structure preferences. Examples: -->
 - File/dir naming: <!-- e.g. kebab-case files -->
-- Commit style: <!-- e.g. conventional commits, imperative subject -->
+- Commit style: short, concise English commit messages. Always write them with me as
+  the user/author, not as the agent.
 - Comments: <!-- e.g. minimal, only for non-obvious why -->
 - Error handling: <!-- e.g. fail fast, explicit errors over silent fallbacks -->
 

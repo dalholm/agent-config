@@ -14,15 +14,23 @@
 #   ./install.sh             # do it
 #   ./install.sh --dry-run   # show what would happen, change nothing
 #   ./install.sh --no-bootstrap   # symlinks/hook only; never install external tools
+#   ./install.sh --safe-profile   # keep harness permission prompts/sandboxing enabled
 #
 set -euo pipefail
 
 DRY_RUN=0
 BOOTSTRAP=1
+PERMISSION_PROFILE="auto-approve"
 for arg in "$@"; do
   case "$arg" in
-    --dry-run)      DRY_RUN=1 ;;
-    --no-bootstrap) BOOTSTRAP=0 ;;
+    --dry-run)       DRY_RUN=1 ;;
+    --no-bootstrap)  BOOTSTRAP=0 ;;
+    --safe-profile)  PERMISSION_PROFILE="safe" ;;
+    --auto-approve)  PERMISSION_PROFILE="auto-approve" ;;
+    *)
+      printf 'Unknown argument: %s\n' "$arg" >&2
+      exit 2
+      ;;
   esac
 done
 
@@ -62,9 +70,53 @@ link() {
   if [ "$DRY_RUN" = 1 ]; then say "  (would link) $link -> $target"; else say "  linked: $link -> $target"; fi
 }
 
+# render <template> <dest>
+render() {
+  local template="$1" dest="$2" dir tmp
+  dir="$(dirname "$dest")"
+  run "mkdir -p '$dir'"
+  if [ "$DRY_RUN" = 1 ]; then
+    say "  would: render $template -> $dest with REPO=$REPO"
+    return
+  fi
+  tmp="$(mktemp)"
+  awk -v repo="$REPO" '{ gsub(/__REPO__/, repo); print }' "$template" > "$tmp"
+  if [ -f "$dest" ] && cmp -s "$tmp" "$dest"; then
+    rm -f "$tmp"
+    say "  ok (already rendered): $dest"
+    return
+  fi
+  if [ -e "$dest" ] || [ -L "$dest" ]; then
+    say "  backing up existing: $dest -> $dest.bak-$STAMP"
+    mv "$dest" "$dest.bak-$STAMP"
+  fi
+  mv "$tmp" "$dest"
+  say "  rendered: $dest"
+}
+
+# set_toml_keys <file> <approval_policy> <sandbox_mode>
+set_toml_keys() {
+  local file="$1" approval="$2" sandbox="$3" dir tmp
+  dir="$(dirname "$file")"
+  run "mkdir -p '$dir'"
+  if [ "$DRY_RUN" = 1 ]; then
+    say "  would: set approval_policy=$approval, sandbox_mode=$sandbox in $file"
+    return
+  fi
+  tmp="$(mktemp)"
+  {
+    printf 'approval_policy = "%s"\nsandbox_mode = "%s"\n\n' "$approval" "$sandbox"
+    if [ -f "$file" ]; then
+      awk '!/^(approval_policy|sandbox_mode)[[:space:]]*=/' "$file"
+    fi
+  } > "$tmp"
+  mv "$tmp" "$file"
+}
+
 say "Repo: $REPO"
 [ "$DRY_RUN" = 1 ] && say "(dry run — no changes)"
 [ "$BOOTSTRAP" = 0 ] && say "(--no-bootstrap — symlinks/hook only, no tool installs)"
+say "(permission profile: $PERMISSION_PROFILE)"
 say ""
 
 if [ "$BOOTSTRAP" = 1 ]; then
@@ -98,7 +150,7 @@ link "$REPO/AGENTS.md" "$HOME/.codex/AGENTS.md"
 say ""
 
 say "Obsidian spec vault:"
-# Specs/plans live in the Obsidian vault (AGENTS.md §6). Ensure the folder exists so
+# Specs/plans live in the Obsidian vault (AGENTS.md §8). Ensure the folder exists so
 # agents can write into it; AGENTS.md (symlinked above) tells Claude/Gemini/Codex, and
 # pi/memory/USER.md tells Pi.
 SPECS="$HOME/Documents/Obsidian/dalholm/Projekt/Specs"
@@ -152,11 +204,10 @@ fi
 say ""
 
 say "Pi:"
-# Configs live at fixed paths under ~/.pi/agent; symlink them out so editing in the
-# repo is live. models.json defines local providers (LM Studio); hermes config drives
-# persistent memory.
+# Configs live at fixed paths under ~/.pi/agent. models.json can be symlinked; the
+# hermes config is rendered at install time so memoryDir follows this repo checkout.
 link "$REPO/pi/models.json" "$HOME/.pi/agent/models.json"
-link "$REPO/pi/hermes-memory-config.json" "$HOME/.pi/agent/hermes-memory-config.json"
+render "$REPO/pi/hermes-memory-config.json" "$HOME/.pi/agent/hermes-memory-config.json"
 # Data dir is redirected into the repo via memoryDir in the config — just ensure it exists.
 run "mkdir -p '$REPO/pi/memory/skills' '$REPO/pi/memory/projects-memory'"
 # Register our skills/ dir with Pi so the same skills trigger as in Claude Code — most
@@ -254,53 +305,84 @@ fi
 say "  codex — run in a Codex CLI session: /plugins  (search 'superpowers' -> Install)"
 say ""
 
-say "Permissions (auto-approve — agents act without asking):"
-# These configs hold machine state (theme/auth), so they can't be symlinked — we merge
-# the one key each harness uses to stop prompting. Idempotent and reversible.
+say "Ponytail (minimal implementation layer):"
+# Ponytail is kept separate from Superpowers: Superpowers controls process; Ponytail
+# shapes implementation/review. The local AGENTS.md and skills/ponytail already provide
+# instruction-level coverage. Install the upstream plugin where lifecycle hooks/commands
+# are useful.
+if have pi; then
+  if pi list 2>/dev/null | grep -q 'ponytail'; then
+    say "  ok (pi: ponytail already installed)"
+  elif [ "$BOOTSTRAP" = 1 ]; then
+    pi_install "git:github.com/DietrichGebert/ponytail" "ponytail"
+  else
+    say "  pi: run 'pi install git:github.com/DietrichGebert/ponytail'"
+  fi
+else
+  say "  pi: not on PATH yet — later run 'pi install git:github.com/DietrichGebert/ponytail'"
+fi
+say "  claude — run in a Claude Code session:"
+say "    /plugin marketplace add DietrichGebert/ponytail"
+say "    /plugin install ponytail@ponytail"
+say "  codex — run once, then install from /plugins and trust hooks:"
+say "    codex plugin marketplace add DietrichGebert/ponytail"
+say "    codex"
+say ""
 
-# Claude Code: bypass all permission prompts.
+say "Permissions ($PERMISSION_PROFILE):"
+# These configs hold machine state (theme/auth), so they can't be symlinked — we merge
+# the permission keys for the chosen profile. Idempotent and reversible.
+
+# Claude Code.
 if have jq; then
   CSET="$HOME/.claude/settings.json"
   run "mkdir -p '$HOME/.claude'"
+  if [ "$PERMISSION_PROFILE" = "safe" ]; then
+    CLAUDE_MODE="default"
+  else
+    CLAUDE_MODE="bypassPermissions"
+  fi
   if [ "$DRY_RUN" = 1 ]; then
-    say "  would: set permissions.defaultMode=bypassPermissions in $CSET"
+    say "  would: set permissions.defaultMode=$CLAUDE_MODE in $CSET"
   else
     [ -f "$CSET" ] || echo '{}' > "$CSET"
     tmp="$(mktemp)"
-    jq '.permissions = (.permissions // {}) | .permissions.defaultMode = "bypassPermissions"' \
+    jq --arg mode "$CLAUDE_MODE" '.permissions = (.permissions // {}) | .permissions.defaultMode = $mode' \
       "$CSET" > "$tmp" && mv "$tmp" "$CSET"
-    say "  claude: permissions.defaultMode = bypassPermissions"
+    say "  claude: permissions.defaultMode = $CLAUDE_MODE"
   fi
 else
-  say "  jq not found — set \"permissions\":{\"defaultMode\":\"bypassPermissions\"} in ~/.claude/settings.json"
+  say "  jq not found — set permissions.defaultMode manually in ~/.claude/settings.json"
 fi
 
-# Codex: never ask + full access. These are top-level TOML keys, so they MUST precede
-# any [table] header — prepend rather than append.
+# Codex. These are top-level TOML keys, so they MUST precede any [table] header.
 CXT="$HOME/.codex/config.toml"
-if [ -f "$CXT" ] && grep -q '^approval_policy' "$CXT"; then
-  say "  ok (codex approval_policy already set)"
-elif [ "$DRY_RUN" = 1 ]; then
-  say "  would: prepend approval_policy=never, sandbox_mode=danger-full-access to $CXT"
+if [ "$PERMISSION_PROFILE" = "safe" ]; then
+  CODEX_APPROVAL="on-request"
+  CODEX_SANDBOX="workspace-write"
 else
-  run "mkdir -p '$HOME/.codex'"
-  tmp="$(mktemp)"
-  { printf 'approval_policy = "never"\nsandbox_mode = "danger-full-access"\n\n'
-    [ -f "$CXT" ] && cat "$CXT"; } > "$tmp" && mv "$tmp" "$CXT"
-  say "  codex: approval_policy=never, sandbox_mode=danger-full-access"
+  CODEX_APPROVAL="never"
+  CODEX_SANDBOX="danger-full-access"
 fi
+set_toml_keys "$CXT" "$CODEX_APPROVAL" "$CODEX_SANDBOX"
+say "  codex: approval_policy=$CODEX_APPROVAL, sandbox_mode=$CODEX_SANDBOX"
 
-# OpenCode: allow the gated tools. opencode.jsonc is JSON-clean today; if comments are
+# OpenCode. opencode.jsonc is JSON-clean today; if comments are
 # added later jq can't parse it, so we detect and fall back to a manual hint.
 OCJ="$HOME/.config/opencode/opencode.jsonc"
 if have jq && [ -f "$OCJ" ]; then
+  if [ "$PERMISSION_PROFILE" = "safe" ]; then
+    OPENCODE_PERMISSION="ask"
+  else
+    OPENCODE_PERMISSION="allow"
+  fi
   if [ "$DRY_RUN" = 1 ]; then
-    say "  would: set permission.{edit,bash,webfetch}=allow in $OCJ"
+    say "  would: set permission.{edit,bash,webfetch}=$OPENCODE_PERMISSION in $OCJ"
   elif jq -e . "$OCJ" >/dev/null 2>&1; then
     tmp="$(mktemp)"
-    jq '.permission = ((.permission // {}) + {edit:"allow",bash:"allow",webfetch:"allow"})' \
+    jq --arg p "$OPENCODE_PERMISSION" '.permission = ((.permission // {}) + {edit:$p,bash:$p,webfetch:$p})' \
       "$OCJ" > "$tmp" && mv "$tmp" "$OCJ"
-    say "  opencode: permission edit/bash/webfetch = allow"
+    say "  opencode: permission edit/bash/webfetch = $OPENCODE_PERMISSION"
   else
     say "  opencode: $OCJ has comments jq can't parse — set permission block manually"
   fi
@@ -308,17 +390,22 @@ else
   say "  opencode config not found (or no jq) — skipping"
 fi
 
-# Pi: trust projects automatically (its only persistent no-prompt knob).
+# Pi: project trust.
 if have jq; then
   PIS="$HOME/.pi/agent/settings.json"
   run "mkdir -p '$HOME/.pi/agent'"
+  if [ "$PERMISSION_PROFILE" = "safe" ]; then
+    PI_TRUST="ask"
+  else
+    PI_TRUST="always"
+  fi
   if [ "$DRY_RUN" = 1 ]; then
-    say "  would: set defaultProjectTrust=always in $PIS"
+    say "  would: set defaultProjectTrust=$PI_TRUST in $PIS"
   else
     [ -f "$PIS" ] || echo '{}' > "$PIS"
     tmp="$(mktemp)"
-    jq '.defaultProjectTrust = "always"' "$PIS" > "$tmp" && mv "$tmp" "$PIS"
-    say "  pi: defaultProjectTrust = always"
+    jq --arg trust "$PI_TRUST" '.defaultProjectTrust = $trust' "$PIS" > "$tmp" && mv "$tmp" "$PIS"
+    say "  pi: defaultProjectTrust = $PI_TRUST"
   fi
 fi
 say ""
