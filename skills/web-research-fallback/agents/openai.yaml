@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Research Fallback"
+  short_description: "Search authoritative sources when blocked"
+  default_prompt: "Use $web-research-fallback to verify the missing technical detail before continuing."

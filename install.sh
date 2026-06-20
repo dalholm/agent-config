@@ -114,6 +114,14 @@ for skill in "$REPO"/skills/*/; do
 done
 say ""
 
+say "Codex skills:"
+for skill in "$REPO"/skills/*/; do
+  [ -d "$skill" ] || continue
+  name="$(basename "$skill")"
+  link "${skill%/}" "$HOME/.codex/skills/$name"
+done
+say ""
+
 say "Claude Code hook (UserPromptSubmit):"
 HOOK="$REPO/hooks/router-reminder.sh"
 run "chmod +x '$HOOK'"

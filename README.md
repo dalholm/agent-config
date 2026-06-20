@@ -41,8 +41,8 @@ lever i `pi/` — se `pi/README.md`.
 ./install.sh --no-bootstrap   # bara symlänkar/hook — installera inga externa verktyg
 ```
 
-Scriptet symlinkar instruktionsfilerna, lägger Claude Code-skillen i
-`~/.claude/skills/`, och fogar in hooken i `~/.claude/settings.json` (kräver `jq`,
+Scriptet symlinkar instruktionsfilerna, lägger skills i `~/.claude/skills/` och
+`~/.codex/skills/`, och fogar in hooken i `~/.claude/settings.json` (kräver `jq`,
 annars skrivs manuell instruktion ut). Starta om agenten efteråt.
 
 Det **bootstrappar** också verktygen configen förutsätter (om de saknas): installerar
@@ -91,9 +91,10 @@ config — kan inte symlänkas eftersom filerna håller maskin-state som tema/au
 - `CLAUDE.md`, `GEMINI.md` — tunna pekare (`@./AGENTS.md`) för manuell kopiering om du
   inte vill symlinka.
 - `preferences.md` — mina stående preferenser; preference-oracle svarar utifrån denna. Fyll i den.
-- `skills/complexity-router/SKILL.md` — router som riktig Claude Code-skill.
+- `skills/complexity-router/SKILL.md` — router som riktig skill där harnesset stödjer det.
 - `skills/goal-watcher/SKILL.md` — drift-väktare för autonoma körningar.
 - `skills/preference-oracle/SKILL.md` — svarar på lågrisk-frågor åt mig, eskalerar resten.
+- `skills/web-research-fallback/SKILL.md` — stoppar gissningar och söker auktoritativa källor när lokal kontext inte räcker.
 - `hooks/router-reminder.sh` — UserPromptSubmit-hook, det deterministiska lagret som
   injicerar router-direktivet varje tur (bara Claude Code).
 - `hooks/settings-snippet.json` — hook-config att klistra in manuellt vid behov.
@@ -105,11 +106,11 @@ config — kan inte symlänkas eftersom filerna håller maskin-state som tema/au
 ## Lager av styrka
 
 1. **AGENTS.md** (portabelt) — funkar i alla harness, sanktionerad override via prioritet.
-2. **complexity-router-skill** (Claude Code) — triggar automatiskt via sin description.
+2. **complexity-router-skill** (Claude Code/Codex/Pi där registrerat) — triggar automatiskt via sin description.
 3. **hook** (Claude Code) — deterministiskt, beror inte på att modellen minns något.
 
-För Codex/Gemini lever router-logiken inline i `AGENTS.md`. Skill och hook är
-Claude-Code-specifika tillägg.
+För Gemini lever router-logiken inline i `AGENTS.md`. Hooken är ett
+Claude-Code-specifikt tillägg.
 
 ## Brasklapp
 
