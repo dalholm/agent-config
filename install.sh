@@ -37,6 +37,14 @@ have() { command -v "$1" >/dev/null 2>&1; }
 # steps in this same run can see them without the user opening a new shell.
 export PATH="$HOME/.local/bin:$PATH"
 
+# pi_install <spec> <label> — install a Pi extension, non-fatal on failure so one bad
+# package (404, network) doesn't abort the whole run under `set -e`.
+pi_install() {
+  if [ "$DRY_RUN" = 1 ]; then say "  would: pi install $1"; return; fi
+  say "  installing extension: pi install $1"
+  pi install "$1" || say "  ! failed: $2 (skipped — check the name / registry)"
+}
+
 # link <target> <linkpath>
 link() {
   local target="$1" link="$2" dir
@@ -138,8 +146,7 @@ if have pi; then
   if pi list 2>/dev/null | grep -q 'pi-hermes-memory'; then
     say "  ok (extension already installed)"
   elif [ "$BOOTSTRAP" = 1 ]; then
-    say "  installing extension: pi install npm:pi-hermes-memory"
-    run "pi install npm:pi-hermes-memory"
+    pi_install "npm:pi-hermes-memory" "pi-hermes-memory"
   else
     say "  extension not installed — run: pi install npm:pi-hermes-memory"
   fi
@@ -149,16 +156,15 @@ fi
 
 # Additional Pi extensions. Quality gates (lens/simplify), model-tiered subagents,
 # research (web-access), MCP bridge, interactive prompts (ask-user/goal), and
-# robustness for local LM Studio runs (lean-ctx/retry/handoff-rebase). See pi/README.md
+# robustness for local LM Studio runs (lean-ctx/handoff-rebase). See pi/README.md
 # for why each is here. Same idempotent pattern as hermes-memory above.
-PI_PACKAGES="pi-subagents pi-lens pi-lean-ctx pi-web-access pi-goal pi-ask-user pi-simplify pi-mcp-adapter pi-retry pi-handoff-rebase"
+PI_PACKAGES="pi-subagents pi-lens pi-lean-ctx pi-web-access pi-goal pi-ask-user pi-simplify pi-mcp-adapter pi-handoff-rebase"
 if have pi; then
   for pkg in $PI_PACKAGES; do
     if pi list 2>/dev/null | grep -q "$pkg"; then
       say "  ok (extension already installed): $pkg"
     elif [ "$BOOTSTRAP" = 1 ]; then
-      say "  installing extension: pi install npm:$pkg"
-      run "pi install npm:$pkg"
+      pi_install "npm:$pkg" "$pkg"
     else
       say "  extension not installed — run: pi install npm:$pkg"
     fi
@@ -195,8 +201,7 @@ if have pi; then
   if pi list 2>/dev/null | grep -q 'superpowers'; then
     say "  ok (pi: superpowers already installed)"
   elif [ "$BOOTSTRAP" = 1 ]; then
-    say "  installing for pi: pi install git:github.com/obra/superpowers"
-    run "pi install git:github.com/obra/superpowers"
+    pi_install "git:github.com/obra/superpowers" "superpowers"
   else
     say "  pi: run 'pi install git:github.com/obra/superpowers'"
   fi
