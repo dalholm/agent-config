@@ -64,9 +64,12 @@ Två mekanismer, en för varje sorts fil:
 | `memory/projects-memory/**` | ✅ | Projekt-scopat minne |
 | `memory/sessions.db` (+ `-wal`/`-shm`) | ❌ gitignoreas | Binär, växande, rå konversationshistorik |
 
-> OBS: Pi-hermes skills (`memory/skills/`) är ett **separat** skill-system från
-> Claude Code-skills i `../skills/`. install.sh symlänkar `../skills/*` till
-> `~/.claude/skills/`; Pi-skills hanteras av extensionen i `memoryDir`.
+> OBS: två sorters skills möts i Pi. `memory/skills/` är **hermes-memory**s egna
+> (procedurer agenten sparar, i `memoryDir`). Repots `../skills/` (complexity-router,
+> goal-watcher, preference-oracle) registreras dessutom i Pi via `"skills"[]` i
+> `~/.pi/agent/settings.json` — samma katalog Claude använder, ingen kopia — så de
+> triggar i Pi precis som i Claude Code. `complexity-router` är den som avgör om/hur
+> mycket en uppgift går genom Superpowers.
 
 ## Installera
 

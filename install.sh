@@ -142,6 +142,23 @@ link "$REPO/pi/models.json" "$HOME/.pi/agent/models.json"
 link "$REPO/pi/hermes-memory-config.json" "$HOME/.pi/agent/hermes-memory-config.json"
 # Data dir is redirected into the repo via memoryDir in the config — just ensure it exists.
 run "mkdir -p '$REPO/pi/memory/skills' '$REPO/pi/memory/projects-memory'"
+# Register our skills/ dir with Pi so the same skills trigger as in Claude Code — most
+# importantly complexity-router, which decides whether/how much a task goes through
+# Superpowers. Pi loads description-based skills from settings.json "skills"[]; point it
+# at the repo (same source Claude uses, no copy). Idempotent, append only if absent.
+if have jq; then
+  PIS="$HOME/.pi/agent/settings.json"
+  run "mkdir -p '$HOME/.pi/agent'"
+  if [ "$DRY_RUN" = 1 ]; then
+    say "  would: add $REPO/skills to \"skills\"[] in $PIS"
+  else
+    [ -f "$PIS" ] || echo '{}' > "$PIS"
+    tmp="$(mktemp)"
+    jq --arg p "$REPO/skills" 'if (.skills // [] | index($p)) then . else .skills = ((.skills // []) + [$p]) end' \
+      "$PIS" > "$tmp" && mv "$tmp" "$PIS"
+    say "  pi: registered skills dir in \"skills\"[] ($REPO/skills)"
+  fi
+fi
 if have pi; then
   if pi list 2>/dev/null | grep -q 'pi-hermes-memory'; then
     say "  ok (extension already installed)"
