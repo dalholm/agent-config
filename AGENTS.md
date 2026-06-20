@@ -115,14 +115,24 @@ Use the cheapest model that can do each role (Superpowers' own guidance).
 Model routing is harness-dependent: Claude Code can set a model per subagent; Codex /
 OpenCode set it in their own config. Treat this table as intent.
 
-## 5. Interaction with Superpowers
+## 5. Language: write code and docs in English
+
+**Always write all code and documentation in English** — identifiers, comments,
+commit messages, code comments, READMEs, specs, and inline docs — unless an existing
+file or project already establishes another language, in which case match it. This
+applies regardless of the language we converse in: I may write to you in Swedish, but
+the artifacts you produce stay in English by default.
+
+---
+
+## 7. Interaction with Superpowers
 
 Superpowers stays installed and unchanged. This file sits on top and decides how much
 of it activates per task. Priority order: **this file > Superpowers skills > system
 prompt.** If the user's CLAUDE.md / AGENTS.md / GEMINI.md says one thing and a skill
 says another, follow the user.
 
-## 6. Specs & plans live in Obsidian
+## 8. Specs & plans live in Obsidian
 
 Written specs and plans are stored in my Obsidian vault — not scattered across repos.
 The canonical folder is:
