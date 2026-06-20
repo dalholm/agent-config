@@ -121,3 +121,20 @@ Superpowers stays installed and unchanged. This file sits on top and decides how
 of it activates per task. Priority order: **this file > Superpowers skills > system
 prompt.** If the user's CLAUDE.md / AGENTS.md / GEMINI.md says one thing and a skill
 says another, follow the user.
+
+## 6. Specs & plans live in Obsidian
+
+Written specs and plans are stored in my Obsidian vault — not scattered across repos.
+The canonical folder is:
+
+**`~/Documents/Obsidian/dalholm/Projekt/Specs/`**
+(absolute: `/Users/dalholm/Documents/Obsidian/dalholm/Projekt/Specs/`)
+
+- When a task produces a spec or a written plan — T2's light spec, or T3's
+  brainstorming → spec → writing-plan — **save it there as a Markdown file**. Make it
+  Obsidian-friendly: a clear `# Title` and `[[wikilinks]]` to related notes where useful.
+- **Before** starting non-trivial work, check that folder for an existing spec on the
+  same topic and build on it instead of duplicating.
+- Name files descriptively (`<projekt>-<feature>.md`) and date-stamp inside the doc.
+- The vault is the home of record. A repo-local copy is fine only as a pointer back to
+  the vault note, never the master.

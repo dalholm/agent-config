@@ -97,6 +97,15 @@ link "$REPO/AGENTS.md" "$HOME/.gemini/GEMINI.md"
 link "$REPO/AGENTS.md" "$HOME/.codex/AGENTS.md"
 say ""
 
+say "Obsidian spec vault:"
+# Specs/plans live in the Obsidian vault (AGENTS.md §6). Ensure the folder exists so
+# agents can write into it; AGENTS.md (symlinked above) tells Claude/Gemini/Codex, and
+# pi/memory/USER.md tells Pi.
+SPECS="$HOME/Documents/Obsidian/dalholm/Projekt/Specs"
+run "mkdir -p '$SPECS'"
+say "  ensured: $SPECS"
+say ""
+
 say "Claude Code skills:"
 for skill in "$REPO"/skills/*/; do
   [ -d "$skill" ] || continue
