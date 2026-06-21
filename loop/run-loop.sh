@@ -150,6 +150,10 @@ echo "[$(date)] builder model: $MODEL (mode: $CYCLE_MODE)" | tee -a "$LOG_FILE"
 # codex's workspace-write sandbox only allows writes under cwd, so building from the loop
 # dir would let codex read the spec vault but fail every write to the target repo.
 CYCLE_REPO="$(cat "$SCRIPT_DIR/.claim-repo" 2>/dev/null || true)"
+# The task's branch (claim-task.sh wrote it from the `Branch:` line). The shell owns all
+# git: it checks this branch out before a strong build, because codex's sandbox makes .git
+# read-only — it can neither create the branch nor commit.
+CYCLE_BRANCH="$(cat "$SCRIPT_DIR/.claim-branch" 2>/dev/null || true)"
 
 # Chat transcript: record the kickoff — the instruction prompt the loop hands the builder.
 # (This is "the autonomous starting a chat with instructions" shown in the dashboard.)
@@ -208,7 +212,20 @@ if [ "$CYCLE_MODE" = "rescue" ]; then
   # tasks keep cwd = the loop dir, so codex writes the result directly — nothing to commit.
   if [ "$REPO_BUILD" = 1 ]; then
     rm -f "$BUILD_CWD/.loop-result.json"
-    RESULT_INSTR="Write your result JSON to ./.loop-result.json in the repo root — you are sandboxed to this repo and CANNOT write outside it. Do NOT run git commit (the sandbox blocks .git); just leave your changes in the working tree on the task branch. The loop runner commits your work and relays the result for you."
+    # The shell owns git: check out the task branch NOW (codex's sandbox can't create it).
+    # Reuse an existing branch (resume) or cut a fresh one from main; never build on main.
+    BR="${CYCLE_BRANCH:-auto/$CLAIMED}"
+    if git -C "$BUILD_CWD" rev-parse --verify -q "$BR" >/dev/null 2>&1; then
+      git -C "$BUILD_CWD" checkout -q "$BR" 2>>"$LOG_FILE" \
+        || echo "[$(date)] WARN: could not switch to existing branch $BR" >>"$LOG_FILE"
+    else
+      git -C "$BUILD_CWD" checkout -q main 2>>"$LOG_FILE" \
+        && git -C "$BUILD_CWD" checkout -q -b "$BR" 2>>"$LOG_FILE" \
+        || echo "[$(date)] WARN: could not create branch $BR from main" >>"$LOG_FILE"
+    fi
+    echo "[$(date)] strong build on branch: $(git -C "$BUILD_CWD" rev-parse --abbrev-ref HEAD 2>/dev/null)" \
+      | tee -a "$LOG_FILE"
+    RESULT_INSTR="You are ALREADY on the task branch ($BR) — the loop runner checked it out for you. Do NOT run ANY git command (no branch/checkout/add/commit): the sandbox makes .git read-only and the runner owns all git (it commits your work and merges). Just edit files in this repo, and write your result JSON to ./.loop-result.json in the repo root (you cannot write outside this repo)."
   else
     RESULT_INSTR="Write your result JSON to $RESULT_FILE as usual."
   fi
@@ -228,7 +245,6 @@ loop/ask-cli-helper.sh WILL fail, and that is expected, NOT a BLOCK.
   locked decisions require; never expand scope.
 - The gate is real: write status:done ONLY after the actual gate is green (e.g. cargo test).
   If you cannot get it green, write status:blocked with a one-line reason.
-- Work on the task branch (create it from main); never touch main.
 - $RESULT_INSTR"
   # codex is the verified strong builder (reads the vault, writes the repo, runs tests).
   ( cd "$BUILD_CWD" && \

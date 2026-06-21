@@ -46,13 +46,14 @@ cat > "$ROUTING" <<'EOF'
   "classes": { "mechanical-small": "lmstudio/SMALL", "coding-general": "lmstudio/GENERAL" } }
 EOF
 
-run_claim() { # run_claim <fixturefile> ; echoes claimed id. mode/model land in $TMP after.
-  rm -f "$TMP/mode" "$TMP/model"
-  CLAIM_MODE_FILE="$TMP/mode" CLAIM_MODEL_FILE="$TMP/model" MODELS_ROUTING="$ROUTING" \
-    AUTO_TASKS="$1" python3 "$DIR/claim-task.sh" 12345
+run_claim() { # run_claim <fixturefile> ; echoes claimed id. mode/model/branch land in $TMP.
+  rm -f "$TMP/mode" "$TMP/model" "$TMP/branch"
+  CLAIM_MODE_FILE="$TMP/mode" CLAIM_MODEL_FILE="$TMP/model" CLAIM_BRANCH_FILE="$TMP/branch" \
+    MODELS_ROUTING="$ROUTING" AUTO_TASKS="$1" python3 "$DIR/claim-task.sh" 12345
 }
 read_mode() { cat "$TMP/mode" 2>/dev/null || echo MISSING; }
 read_model() { cat "$TMP/model" 2>/dev/null || echo MISSING; }
+read_branch() { cat "$TMP/branch" 2>/dev/null || echo MISSING; }
 
 echo "test: 2 prior resumes -> third attempt is a RESCUE (not parked)"
 F="$TMP/a.md"; fixture_inprogress 2 > "$F"
@@ -85,6 +86,7 @@ EOF
 ID="$(run_claim "$F")"; MODE="$(read_mode)"
 check "claims queued task"           "T-009"  "$ID"
 check "mode is local"                "local"  "$MODE"
+check "branch from Branch: line"     "auto/T-009-x" "$(read_branch)"
 
 echo "test: a builder:strong task claims straight into rescue mode (attempt 1)"
 F="$TMP/d.md"; cat > "$F" <<'EOF'
@@ -151,6 +153,21 @@ F="$TMP/m3.md"; cat > "$F" <<'EOF'
 ## Done
 EOF
 run_claim "$F" >/dev/null; check "unknown class -> fallback model" "lmstudio/FALLBACK" "$(read_model)"
+
+echo "test: branch falls back to auto/<id> when the task omits a Branch: line"
+F="$TMP/b2.md"; cat > "$F" <<'EOF'
+# Auto Tasks
+## Queue
+<!-- c -->
+- [ ] **T-040** No-branch task `prio:med`
+  - **Done when:** x
+## In progress
+<!-- c -->
+## Blocked / escalated to me
+<!-- c -->
+## Done
+EOF
+run_claim "$F" >/dev/null; check "branch fallback -> auto/T-040" "auto/T-040" "$(read_branch)"
 
 echo
 if [ "$fails" -eq 0 ]; then echo "ALL PASS"; else echo "$fails FAILURES"; exit 1; fi

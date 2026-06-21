@@ -48,6 +48,13 @@ CLAIM_MODEL_FILE = os.environ.get(
     "CLAIM_MODEL_FILE",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), ".claim-model"),
 )
+# Sidecar with the task's git branch (from its `Branch:` line). run-loop.sh checks this
+# branch out BEFORE a strong build, because codex's sandbox makes .git read-only — it can
+# neither create the branch nor commit. The shell owns all git; codex only edits files.
+CLAIM_BRANCH_FILE = os.environ.get(
+    "CLAIM_BRANCH_FILE",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), ".claim-branch"),
+)
 MODELS_ROUTING = os.environ.get(
     "MODELS_ROUTING",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pi", "models-routing.json"),
@@ -105,6 +112,21 @@ def resolve_model(task_class):
 def write_model(header_line):
     with open(CLAIM_MODEL_FILE, "w", encoding="utf-8") as f:
         f.write(resolve_model(extract_class(header_line)))
+
+
+def extract_branch(block_lines, task_id):
+    """The task's git branch from its `**Branch:** <name>` sub-line; fall back to
+    auto/<task_id> when the task omits one."""
+    for ln in block_lines:
+        m = re.search(r"\*\*Branch:\*\*\s*([^\s`]+)", ln)
+        if m:
+            return m.group(1)
+    return "auto/%s" % task_id
+
+
+def write_branch(block_lines, task_id):
+    with open(CLAIM_BRANCH_FILE, "w", encoding="utf-8") as f:
+        f.write(extract_branch(block_lines, task_id))
 
 HEADER = re.compile(r"^- \[([ x/!])\] \*\*(T-\d+)\*\*")
 PRIO = re.compile(r"`prio:(high|med|low)`")
@@ -204,6 +226,7 @@ def main():
             write_mode("rescue" if strong else "local")
             write_repo(extract_repo(lines[s]))
             write_model(lines[s])
+            write_branch(lines[s:e], blk["id"])
             print(blk["id"])  # resume this one; don't claim another
             return
 
@@ -241,6 +264,7 @@ def main():
     write_mode("rescue" if is_strong(block[0]) else "local")
     write_repo(extract_repo(block[0]))
     write_model(block[0])
+    write_branch(block, pick["id"])
     print(pick["id"])
 
 
