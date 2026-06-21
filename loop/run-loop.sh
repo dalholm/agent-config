@@ -134,9 +134,12 @@ rm -f "$RESULT_FILE"
 # cloud CLI in write mode — it can actually finish (edit, test, commit) instead of advise.
 # It writes the same .cycle-result.json, so completion below is identical for both paths.
 if [ "$CYCLE_MODE" = "rescue" ]; then
-  echo "[$(date)] RESCUE: local builder stalled — handing cycle to strong CLI (build mode)." \
+  echo "[$(date)] RESCUE/STRONG: building this cycle with the strong CLI (codex, build mode)." \
     | tee -a "$LOG_FILE"
-  HELPER_MODE=build HELPER_TIMEOUT="$MAX_CYCLE_SECONDS" HELPER_CHANNEL=stronger-model \
+  # codex is the verified strong builder (reads the vault, writes the repo, runs tests);
+  # claude stays the auto fallback for the oracle. Override with HELPER_CLI if needed.
+  HELPER_CLI="${RESCUE_CLI:-codex}" HELPER_MODE=build HELPER_TIMEOUT="$MAX_CYCLE_SECONDS" \
+  HELPER_CHANNEL=stronger-model \
     "$SCRIPT_DIR/ask-cli-helper.sh" "$(cat "$PROMPT_FILE")" >>"$LOG_FILE" 2>&1 \
     || echo "[$(date)] rescue CLI exited non-zero; result file (if any) decides." >>"$LOG_FILE"
 else

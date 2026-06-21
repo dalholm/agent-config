@@ -43,6 +43,12 @@ def write_mode(mode):
     with open(CLAIM_MODE_FILE, "w", encoding="utf-8") as f:
         f.write(mode)
 
+
+def is_strong(header_line):
+    """A `builder:strong` tag pins the task to the strong cloud CLI (codex/claude) from
+    attempt 1 — for heavy/fuzzy phases the local builder keeps stalling on."""
+    return "builder:strong" in header_line
+
 HEADER = re.compile(r"^- \[([ x/!])\] \*\*(T-\d+)\*\*")
 PRIO = re.compile(r"`prio:(high|med|low)`")
 PRIO_RANK = {"high": 0, "med": 1, "low": 2}
@@ -135,9 +141,10 @@ def main():
                 lines.insert(s + 1, counter)
             with open(TASKS, "w", encoding="utf-8") as f:
                 f.write("\n".join(lines))
-            # Last-ditch: hand attempt RESCUE_AT to the strong cloud CLI instead of the
-            # local builder that has already stalled this many times.
-            write_mode("rescue" if attempts >= RESCUE_AT else "local")
+            # Strong-CLI from attempt 1 if pinned; otherwise the last-ditch rescue rung
+            # hands attempt RESCUE_AT to the strong cloud CLI.
+            strong = is_strong(lines[s]) or attempts >= RESCUE_AT
+            write_mode("rescue" if strong else "local")
             print(blk["id"])  # resume this one; don't claim another
             return
 
@@ -171,7 +178,8 @@ def main():
 
     with open(TASKS, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
-    write_mode("local")  # a fresh task starts on the local builder
+    # builder:strong pins to the strong CLI from the first attempt; else the local builder.
+    write_mode("rescue" if is_strong(block[0]) else "local")
     print(pick["id"])
 
 

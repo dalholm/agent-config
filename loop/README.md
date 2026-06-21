@@ -58,6 +58,12 @@ So a task that lands in Blocked has genuinely exhausted both the local builder a
 stronger cloud agent — it's a real dead-end, not a flaky stall. Tune the rungs via
 `RESCUE_AT` / `PARK_AT` in `claim-task.sh`.
 
+**Skip straight to the strong builder.** Tag a task `builder:strong` in its header and the
+shell runs it via the strong CLI (codex, build mode) from attempt 1 — no wasted local
+grinds. Use it for heavy/fuzzy phases the local model keeps stalling on (e.g. a multi-part
+simulation phase). The strong CLI reads the spec vault and writes/tests/commits the repo
+itself. Override the CLI with `RESCUE_CLI=claude` if needed.
+
 ## Run it (manual, the current mode)
 
 ```sh

@@ -68,10 +68,13 @@ _cap() {
 #                    can edit, run tests, and commit. (Verify both flag names for your build.)
 run_claude() {
   _have "$CLAUDE_BIN" || return 127
+  # Feed the prompt via stdin: claude's --allowedTools / --permission-mode are variadic
+  # and otherwise swallow a positional prompt ("Input must be provided ... when using
+  # --print"). stdin sidesteps that entirely.
   if [ "$MODE" = "build" ]; then
-    _cap "$CLAUDE_BIN" -p --permission-mode bypassPermissions "$PROMPT"
+    printf '%s' "$PROMPT" | _cap "$CLAUDE_BIN" -p --permission-mode bypassPermissions
   else
-    _cap "$CLAUDE_BIN" -p --allowedTools "Read Grep Glob" "$PROMPT"
+    printf '%s' "$PROMPT" | _cap "$CLAUDE_BIN" -p --allowedTools "Read Grep Glob"
   fi
 }
 

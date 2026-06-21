@@ -77,5 +77,23 @@ ID="$(run_claim "$F")"; MODE="$(read_mode)"
 check "claims queued task"           "T-009"  "$ID"
 check "mode is local"                "local"  "$MODE"
 
+echo "test: a builder:strong task claims straight into rescue mode (attempt 1)"
+F="$TMP/d.md"; cat > "$F" <<'EOF'
+# Auto Tasks
+## Queue
+<!-- c -->
+- [ ] **T-020** Heavy phase `prio:high` `builder:strong` `repo:/x`
+  - **Done when:** x
+  - **Branch:** auto/T-020-x
+## In progress
+<!-- c -->
+## Blocked / escalated to me
+<!-- c -->
+## Done
+EOF
+ID="$(run_claim "$F")"; MODE="$(read_mode)"
+check "claims the strong task"       "T-020"  "$ID"
+check "mode is rescue from attempt 1" "rescue" "$MODE"
+
 echo
 if [ "$fails" -eq 0 ]; then echo "ALL PASS"; else echo "$fails FAILURES"; exit 1; fi
