@@ -95,7 +95,20 @@ _watchdog() {
 # Portable: prefers timeout/gtimeout, else a background kill via _watchdog.
 run_pi() {
   local to; to="$(command -v timeout || command -v gtimeout || true)"
-  local cmd=(pi -p --model "$MODEL" "$(cat "$PROMPT_FILE")")
+  local msg; msg="$(cat "$PROMPT_FILE")"
+  # Slice 2: if a senior junior-plan was cached for this task, append it to the builder's
+  # message. Local models follow inline instructions far better than "go read this file".
+  if [ -n "${PLAN_FILE:-}" ] && [ -s "${PLAN_FILE:-/nonexistent}" ]; then
+    msg="$msg
+
+---
+## Junior plan for $CLAIMED — senior-written, FOLLOW IT
+A stronger model wrote the plan and acceptance tests below. Implement TO those tests; they
+are authoritative — do NOT modify or weaken them. Full copy on disk: $PLAN_FILE
+
+$(cat "$PLAN_FILE")"
+  fi
+  local cmd=(pi -p --model "$MODEL" "$msg")
   [ -n "$to" ] && cmd=("$to" -k 10 "${MAX_CYCLE_SECONDS}s" "${cmd[@]}")
   if [ "${STREAM:-0}" = 1 ]; then
     if [ -n "$to" ]; then "${cmd[@]}"; else "${cmd[@]}" & _watchdog $!; fi
@@ -147,6 +160,35 @@ CYCLE_REPO="$(cat "$SCRIPT_DIR/.claim-repo" 2>/dev/null || true)"
 # mis-completed from a previous cycle's leftover (complete-task.sh keys off this file).
 rm -f "$RESULT_FILE"
 
+# ── Slice 2: senior plan pre-step (local cycles only) ─────────────────────────
+# A strong CLI decomposes the task into a small junior plan WITH its acceptance tests; the
+# local builder then implements to it (run_pi appends it to the prompt). Cached in the vault
+# (inside LEAN_CTX_EXTRA_ROOTS so the builder can read it) so a resume reuses the plan
+# instead of re-paying for it. Rescue cycles skip this — the strong CLI builds directly.
+PLAN_FILE=""
+if [ "$CYCLE_MODE" = "local" ]; then
+  PLAN_DIR="${LEAN_CTX_EXTRA_ROOTS%%:*}/Auto Plans"
+  PLAN_FILE="$PLAN_DIR/$CLAIMED.md"
+  mkdir -p "$PLAN_DIR"
+  if [ ! -s "$PLAN_FILE" ]; then
+    echo "[$(date)] Slice2: generating junior plan for $CLAIMED via the strong CLI…" \
+      | tee -a "$LOG_FILE"
+    PLAN_PROMPT="$(sed "s/__TASK__/$CLAIMED/g" "$SCRIPT_DIR/plan-prompt.md")"
+    if HELPER_MODE=consult HELPER_CHANNEL=stronger-model \
+         "$SCRIPT_DIR/ask-cli-helper.sh" "$PLAN_PROMPT" >"$PLAN_FILE.tmp" 2>>"$LOG_FILE" \
+         && [ -s "$PLAN_FILE.tmp" ]; then
+      mv "$PLAN_FILE.tmp" "$PLAN_FILE"
+      echo "[$(date)] Slice2: plan cached at $PLAN_FILE" | tee -a "$LOG_FILE"
+    else
+      rm -f "$PLAN_FILE.tmp"; PLAN_FILE=""
+      echo "[$(date)] Slice2: plan generation failed — builder runs without one." \
+        | tee -a "$LOG_FILE"
+    fi
+  else
+    echo "[$(date)] Slice2: reusing cached junior plan $PLAN_FILE" | tee -a "$LOG_FILE"
+  fi
+fi
+
 # Run one cycle on the claimed task (output → log; watch with `tail -f` or the dashboard).
 # Last-ditch rescue: if the local builder has already stalled this task its allotted times,
 # claim-task.sh flips the mode to "rescue" and we hand the SAME cycle prompt to the strong
@@ -180,6 +222,16 @@ if [ -f "$RESULT_FILE" ]; then
 else
   printf '(no result file — builder crashed or was blocked mid-cycle; see cycle log)'
 fi | "$SCRIPT_DIR/conv-log.sh" "builder" "loop" "result" - || true
+
+# ── Slice 3: senior review gate (local cycles only) ───────────────────────────
+# A weak local model's "done" is the loop's least trustworthy signal. Before
+# complete-task.sh can merge the branch to main, a strong CLI reviews the branch diff; on
+# VERDICT: BLOCK, review-gate.py rewrites .cycle-result.json to blocked so the SAME resume
+# ladder handles it (no second ladder). Rescue builds are the strong model already — not
+# gated. Fail-open: an unavailable reviewer or empty diff passes, never stalls the loop.
+if [ "$CYCLE_MODE" = "local" ]; then
+  python3 "$SCRIPT_DIR/review-gate.py" 2>&1 | tee -a "$LOG_FILE" || true
+fi
 
 # ── Deterministic completion ──────────────────────────────────────────────────
 # The agent wrote loop/.cycle-result.json (done/blocked) and did NOT edit the task

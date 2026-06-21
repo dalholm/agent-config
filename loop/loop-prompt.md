@@ -78,6 +78,9 @@ This keeps THIS prompt generic. Project-specific gates (e.g. FeatureSociety's de
    always (it may rate a task T1/T2 — apply the matching ceremony; most queued tasks are
    T3). For T3, apply the full autonomous Superpowers pipeline (brainstorming already
    done in step 4 → spec → writing-plan → subagent-driven implementation → review):
+   - **If a junior plan is appended below this prompt** (senior-written, with acceptance
+     tests), it is your authoritative guide: implement TO those tests and do NOT modify or
+     weaken them. You still run the gate and get oracle sign-off on the result.
    - Use the **BLOCKED protocol** to self-resolve (more context → **stronger model** →
      break it down). The *stronger model* rung is a cloud CLI: call
      `loop/ask-cli-helper.sh "<the problem + the context it needs>"` (via bash) to get a

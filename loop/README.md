@@ -10,15 +10,21 @@ rather than inventing a new one.
 | File | Role |
 |------|------|
 | `loop-prompt.md` | The cycle instruction fed to pi on every wake. The brain of the loop. |
-| `run-loop.sh` | Runs **one** cycle now. Manual trigger. Builder model = qwen3.6. Logs to `loop/logs/`. |
+| `run-loop.sh` | Runs **one** cycle now. Manual trigger. Builder model routed per task class. Logs to `loop/logs/`. |
+| `plan-prompt.md` | **Slice 2:** instruction the strong CLI uses to write a junior plan (+ tests) the local builder implements. Plans cache in `Projekt/Auto Plans/`. |
+| `review-gate.py` | **Slice 3:** strong-CLI review of a local cycle's branch diff before merge; `VERDICT: BLOCK` demotes the result to blocked. Tested by `test-review-gate.sh`. |
 | `ask-oracle.sh` | The `preference-oracle` — the builder calls it for decisions and phase sign-off. Now runs on a cloud CLI via `ask-cli-helper.sh`. |
-| `ask-cli-helper.sh` | Headless "stronger model" helper: tries Claude CLI, falls back to Codex. Backs the oracle and the BLOCKED protocol's stronger-model rung. |
+| `ask-cli-helper.sh` | Headless "stronger model" helper: tries Claude CLI, falls back to Codex. Backs the oracle, the plan pre-step, the review gate, and the BLOCKED protocol's stronger-model rung. |
+| `ensure-path.sh` | Sourced by the above to make `pi`/`node` (nvm) and `claude`/`codex` (`~/.local/bin`) resolvable under launchd's minimal PATH. |
+| `models-routing.json` (in `pi/`) | Hand-ordered task-class → local builder model, read at claim time. |
 | `se.dalholm.autoloop.plist` | Prepared (not loaded) launchd schedule for later. |
 | `Auto Tasks.md` (in Obsidian) | The backlog. Home of record: `~/Documents/Obsidian/dalholm/Projekt/Auto Tasks.md`. |
 
 ## Models (verified against pi's CLI)
 
-- **Builder:** `lmstudio/qwen/qwen3.6-35b-a3b`, pinned in `run-loop.sh` via `pi -p --model …`.
+- **Builder:** a local LM Studio model, **routed per task class** by `pi/models-routing.json`
+  at claim time (default `lmstudio/qwen/qwen3.6-35b-a3b`; `class:mechanical-small` → gemma-12b).
+  `run-loop.sh` runs whatever lands in `.claim-model`, with the qwen pin as fallback.
 - **Oracle / stronger model:** a cloud coding CLI — **Claude** (`claude -p`), falling back
   to **Codex** (`codex exec`) — invoked by `ask-cli-helper.sh`. The oracle is therefore a
   genuinely independent voice, separate from the local builder, with strong-tier judgment.
@@ -29,10 +35,12 @@ rather than inventing a new one.
 ## How one cycle works
 
 ```
-wake → read Auto Tasks.md → pick top runnable Queue task (one!)
+wake → claim top runnable Queue task (one!) → route builder model by class
+     → [local] strong CLI writes a junior plan + tests (cached in Auto Plans/)
      → branch → mark in-progress
      → run under router (T3 autonomous: oracle + goal-watcher + TDD + loop-guard)
-     → success: → Done + commit   |   dead-end/scope: → Escalated + best guess
+     → [local] strong-CLI review gate on the diff → BLOCK demotes to blocked
+     → success: → Done + merge to main   |   dead-end/scope/BLOCK: → resume ladder
      → write report → STOP
 ```
 
