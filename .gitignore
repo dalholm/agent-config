@@ -6,3 +6,9 @@
 pi/memory/sessions.db
 pi/memory/sessions.db-wal
 pi/memory/sessions.db-shm
+
+# Loop runtime artifacts — per-run logs, the single-instance lock, the cycle result.
+loop/logs/
+loop/.loop.lock/
+loop/.cycle-result.json
+loop/__pycache__/

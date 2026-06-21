@@ -120,9 +120,9 @@ config — kan inte symlänkas eftersom filerna håller maskin-state som tema/au
 - `hooks/settings-snippet.json` — hook-config att klistra in manuellt vid behov.
 - `install.sh` — symlinkar instruktionsfiler + alla skills, hooken, samt Pi-configen;
   bootstrappar Node/Pi/hermes-extensionen om de saknas och pekar ut Superpowers-installen.
-- `pi/` — Pi-harness-tillägg. `hermes-memory-config.json` (renderas vid install) +
-  `memory/` (persistent minne, skills, sessionssök; `memoryDir` renderas till aktuell
-  repo-path). Se `pi/README.md`.
+- `pi/` — Pi-harness-tillägg. `hermes-memory-config.json` (renderas vid install),
+  `extensions/loop-guard-mine.ts` (lokal loop-vakt), och `memory/` (persistent minne,
+  skills, sessionssök; `memoryDir` renderas till aktuell repo-path). Se `pi/README.md`.
 
 ## Lager av styrka
 

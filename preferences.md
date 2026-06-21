@@ -6,20 +6,38 @@ covered here, or anything high-stakes, gets escalated to me (see the escalation 
 the bottom). Write entries in any language; be specific.
 
 ## Tech defaults
-<!-- Standing technical choices the oracle may apply without asking. Examples: -->
-- Language / runtime: <!-- e.g. TypeScript, Node 20 -->
-- Package manager: <!-- e.g. pnpm -->
-- Test framework: <!-- e.g. vitest -->
-- Lint/format: <!-- e.g. eslint + prettier, defaults -->
-- Install scope when ambiguous: <!-- e.g. user-level (~/.config/...) not system -->
+<!-- Standing technical choices the oracle may apply without asking. -->
+- Language / runtime: TypeScript by default. Node LTS.
+- **No UI frameworks by default.** We favour maximum control: hand-rolled code over a
+  framework's conventions. Do NOT reach for Vue/React/Next/Tailwind or any framework
+  unless a project already uses one or I explicitly ask. Match what a project already
+  has; never introduce a new framework on your own.
+- **Styling = our own design-token system.** Style via our own tokens (CSS custom
+  properties / a tokens layer we own), not a third-party styling framework. Plain CSS
+  driven by tokens; explicit classes.
+- Package manager: pnpm.
+- Test framework: vitest.
+- Lint/format: eslint + prettier, defaults.
+- Install scope when ambiguous: user-level (`~/.config`, `~/.pi`, `~/.claude`), not
+  system-wide.
+- Locale: Swedish UI text, SEK currency formatting, for user-facing strings.
 
 ## Conventions
-<!-- Code/style/structure preferences. Examples: -->
-- File/dir naming: <!-- e.g. kebab-case files -->
+- File/dir naming: kebab-case files.
 - Commit style: short, concise English commit messages. Always write them with me as
   the user/author, not as the agent.
-- Comments: <!-- e.g. minimal, only for non-obvious why -->
-- Error handling: <!-- e.g. fail fast, explicit errors over silent fallbacks -->
+- Code & docs language: English (identifiers, comments, READMEs) per AGENTS.md §6 —
+  even when we converse in Swedish.
+- Comments: minimal; only the non-obvious *why*.
+- Error handling: fail fast, explicit errors over silent fallbacks.
+- **Don't rewrite working code.** If it works, leave it. Fix all style/lint errors in
+  one batch, then move to feature work; never revisit style without me asking. (This is
+  a standing correction from past loops — treat re-litigating working code as drift.)
+- **Refactor on reuse, not before.** Start inline and concrete (YAGNI). The moment a
+  piece of code is genuinely needed a second time, extract it — component-based for UI,
+  a shared module/service for backend. Don't pre-abstract for a reuse that hasn't
+  appeared; don't leave a third copy un-extracted either. The trigger is *observed*
+  reuse, not anticipated reuse.
 
 ## Product / scope defaults
 - YAGNI bias: build the minimum that meets the spec; don't add speculative features.

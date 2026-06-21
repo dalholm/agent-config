@@ -15,18 +15,21 @@
 #   ./install.sh --dry-run   # show what would happen, change nothing
 #   ./install.sh --no-bootstrap   # symlinks/hook only; never install external tools
 #   ./install.sh --safe-profile   # keep harness permission prompts/sandboxing enabled
+#   ./install.sh --enable-loop    # ALSO load the autonomous loop schedule (every 5 min)
 #
 set -euo pipefail
 
 DRY_RUN=0
 BOOTSTRAP=1
 PERMISSION_PROFILE="auto-approve"
+ENABLE_LOOP=0
 for arg in "$@"; do
   case "$arg" in
     --dry-run)       DRY_RUN=1 ;;
     --no-bootstrap)  BOOTSTRAP=0 ;;
     --safe-profile)  PERMISSION_PROFILE="safe" ;;
     --auto-approve)  PERMISSION_PROFILE="auto-approve" ;;
+    --enable-loop)   ENABLE_LOOP=1 ;;
     *)
       printf 'Unknown argument: %s\n' "$arg" >&2
       exit 2
@@ -257,6 +260,78 @@ if have pi; then
 else
   say "  pi not on PATH — open a new shell, then install each: $PI_PACKAGES"
 fi
+
+# Local Pi extensions owned by this repo. Unlike npm packages, this is a file WE EDIT,
+# so always (re)install it rather than skipping when present — otherwise edits (e.g. the
+# LOOP_GUARD_OFF escape hatch) never reach pi's installed copy. It's a local path, so the
+# refresh is cheap and offline. Remove-then-install guarantees a fresh copy.
+LOOP_GUARD="$REPO/pi/extensions/loop-guard-mine.ts"
+if have pi; then
+  if [ "$DRY_RUN" = 1 ]; then
+    say "  would: refresh local extension loop-guard-mine (remove + reinstall so edits load)"
+  else
+    if pi list 2>/dev/null | grep -q 'loop-guard-mine'; then
+      pi remove "$LOOP_GUARD" 2>/dev/null || pi uninstall "$LOOP_GUARD" 2>/dev/null || true
+    fi
+    pi_install "$LOOP_GUARD" "loop-guard-mine"
+  fi
+else
+  say "  pi not on PATH — open a new shell, then: pi install '$LOOP_GUARD'"
+fi
+say ""
+
+say "Autonomous loop (scripts + schedule):"
+# The loop's engine lives in loop/. Make the scripts runnable, ensure the dirs launchd
+# needs exist, and place the launchd plist. Loading it (starting the 5-min schedule) is
+# OPT-IN via --enable-loop, because it runs autonomous code that commits and merges to
+# main — not something a routine install should silently switch on.
+LOOP_DIR="$REPO/loop"
+for s in run-loop.sh ask-oracle.sh claim-task.sh complete-task.sh watch-cycle.sh loop-dashboard.py; do
+  [ -f "$LOOP_DIR/$s" ] && run "chmod +x '$LOOP_DIR/$s'"
+done
+LA="$HOME/Library/LaunchAgents"
+run "mkdir -p '$LA' '$LOOP_DIR/logs'"   # LaunchAgents often doesn't exist yet
+
+PLIST_SRC="$LOOP_DIR/se.dalholm.autoloop.plist"
+PLIST_DST="$LA/se.dalholm.autoloop.plist"
+LOOP_LABEL="se.dalholm.autoloop"
+if [ -f "$PLIST_SRC" ]; then
+  # launchd runs with a minimal PATH; inject the live pi bin dir so `pi` is found even
+  # after an nvm node upgrade moves it.
+  PI_BIN=""
+  have pi && PI_BIN="$(dirname "$(command -v pi)")"
+  if [ "$DRY_RUN" = 1 ]; then
+    say "  would: install $PLIST_DST (pi bin: ${PI_BIN:-<pi not found>})"
+  else
+    [ -f "$PLIST_DST" ] && { say "  backing up existing: $PLIST_DST -> $PLIST_DST.bak-$STAMP"; mv "$PLIST_DST" "$PLIST_DST.bak-$STAMP"; }
+    if [ -n "$PI_BIN" ]; then
+      sed -E "s#<string>[^<]*/bin:/opt/homebrew#<string>${PI_BIN}:/opt/homebrew#" "$PLIST_SRC" > "$PLIST_DST"
+      say "  installed: $PLIST_DST (pi bin: $PI_BIN)"
+    else
+      cp "$PLIST_SRC" "$PLIST_DST"
+      say "  installed: $PLIST_DST  (! pi not on PATH — fix the PATH in the plist before loading)"
+    fi
+  fi
+fi
+
+if [ "$ENABLE_LOOP" = 1 ]; then
+  if [ "$DRY_RUN" = 1 ]; then
+    say "  would: load launchd job $LOOP_LABEL (runs every 5 min)"
+  else
+    run "launchctl bootout 'gui/$(id -u)/$LOOP_LABEL' 2>/dev/null || true"
+    if launchctl bootstrap "gui/$(id -u)" "$PLIST_DST" 2>/dev/null; then
+      say "  loop schedule LOADED — runs every 5 min. Stop: launchctl bootout gui/\$(id -u)/$LOOP_LABEL"
+    else
+      say "  ! launchctl bootstrap failed — load manually (see below)"
+    fi
+  fi
+else
+  say "  schedule placed but NOT started (it runs autonomous code). Enable it with:"
+  say "    launchctl bootstrap gui/\$(id -u) '$PLIST_DST'        # start the 5-min loop"
+  say "    launchctl kickstart gui/\$(id -u)/$LOOP_LABEL          # run one cycle now"
+  say "    # or re-run:  ./install.sh --enable-loop"
+fi
+say "  watch it: python3 '$LOOP_DIR/loop-dashboard.py'  → http://localhost:8787"
 say ""
 
 say "Superpowers (cross-harness skills framework):"
@@ -412,3 +487,8 @@ say ""
 
 say "Done. Restart your agent so it re-reads global config."
 say "First Pi run: '/memory-index-sessions' to index past sessions for search."
+if [ "$ENABLE_LOOP" = 1 ]; then
+  say "Autonomous loop: schedule LOADED (every 5 min). Watch: python3 loop/loop-dashboard.py"
+else
+  say "Autonomous loop: ready but not started — enable with ./install.sh --enable-loop"
+fi

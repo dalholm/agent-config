@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+"""claim-task.sh — deterministically claim ONE task before the LLM runs.
+
+The local builder model is unreliable at bookkeeping, so the shell (not the model)
+owns the claim. This script:
+
+  1. If a task is already in `## In progress` (`- [/]`), prints its id and exits — that
+     is a claimed/orphaned task to resume; we never claim a second one.
+  2. Otherwise moves the top runnable `- [ ]` task from `## Queue` into `## In progress`,
+     flips it to `- [/]`, stamps `claimed:`/`pid:`, prints its id.
+  3. If there is nothing to claim, prints `NONE`.
+
+"Top runnable" = highest prio (high > med > low), then document order — matching the
+loop-prompt. This guarantees a task is never left re-pickable as `- [ ]` while it runs,
+which is what caused the same task to restart every cycle.
+
+Usage:  claim-task.sh <pid>          (pid stamped into the claim)
+Env:    AUTO_TASKS  overrides the task-list path.
+"""
+import os, re, sys, datetime
+
+TASKS = os.environ.get(
+    "AUTO_TASKS",
+    "/Users/dalholm/Documents/Obsidian/dalholm/Projekt/Auto Tasks.md",
+)
+PID = sys.argv[1] if len(sys.argv) > 1 else str(os.getpid())
+
+HEADER = re.compile(r"^- \[([ x/!])\] \*\*(T-\d+)\*\*")
+PRIO = re.compile(r"`prio:(high|med|low)`")
+PRIO_RANK = {"high": 0, "med": 1, "low": 2}
+SECTION = re.compile(r"^## (.+?)\s*$")
+
+
+def load():
+    with open(TASKS, "r", encoding="utf-8") as f:
+        return f.read().split("\n")
+
+
+def sections(lines):
+    """Return {name: (start_idx_of_header, end_idx_exclusive)} for each ## section."""
+    idxs = [(i, m.group(1)) for i, l in enumerate(lines) for m in [SECTION.match(l)] if m]
+    out = {}
+    for k, (i, name) in enumerate(idxs):
+        end = idxs[k + 1][0] if k + 1 < len(idxs) else len(lines)
+        out[name] = (i, end)
+    return out
+
+
+def block_end(lines, start, limit):
+    """A task block = header line + following indented lines, until a blank/non-indent."""
+    j = start + 1
+    while j < limit and (lines[j].startswith((" ", "\t"))):
+        j += 1
+    return j
+
+
+def find_blocks(lines, lo, hi, status):
+    blocks = []
+    i = lo
+    while i < hi:
+        m = HEADER.match(lines[i])
+        if m and m.group(1) == status:
+            end = block_end(lines, i, hi)
+            pm = PRIO.search(lines[i])
+            prio = pm.group(1) if pm else "med"
+            blocks.append({"id": m.group(2), "start": i, "end": end, "prio": prio})
+            i = end
+        else:
+            i += 1
+    return blocks
+
+
+def main():
+    lines = load()
+    sec = sections(lines)
+    if "Queue" not in sec or "In progress" not in sec:
+        print("NONE")
+        return
+
+    # 1) Already-claimed / orphan task in In progress? Resume it, with a crash cap.
+    ip_lo, ip_hi = sec["In progress"]
+    inprog = find_blocks(lines, ip_lo, ip_hi, "/")
+    if inprog:
+        blk = inprog[0]
+        s, e = blk["start"], blk["end"]
+        # find/increment a deterministic resume counter inside the block
+        ai, attempts = None, 0
+        for k in range(s, e):
+            mm = re.match(r"\s*- resume-attempts:\s*(\d+)", lines[k])
+            if mm:
+                ai, attempts = k, int(mm.group(1))
+                break
+        attempts += 1
+        if attempts >= 3:
+            # crashed too many times → park in Blocked, then fall through to claim next
+            block = lines[s:e]
+            block[0] = block[0].replace("- [/]", "- [!]", 1)
+            block.insert(1, "  - blocked: crashed %dx without finishing — needs your eyes" % attempts)
+            del lines[s:e]
+            bsec = sections(lines)
+            bname = next((n for n in bsec if n.startswith("Blocked")), None)
+            if bname:
+                blo, bhi = bsec[bname]
+                at = blo + 1
+                while at < bhi and (lines[at].strip().startswith("<!--") or lines[at].strip() == ""):
+                    at += 1
+                lines[at:at] = block + [""]
+            with open(TASKS, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines))
+            sys.stderr.write("resume cap hit for %s — moved to Blocked\n" % blk["id"])
+            sec = sections(lines)  # fall through to claim a fresh task below
+        else:
+            counter = "  - resume-attempts: %d" % attempts
+            if ai is not None:
+                lines[ai] = counter
+            else:
+                lines.insert(s + 1, counter)
+            with open(TASKS, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines))
+            print(blk["id"])  # resume this one; don't claim another
+            return
+
+    # 2) Pick the top runnable task in Queue.
+    q_lo, q_hi = sec["Queue"]
+    runnable = find_blocks(lines, q_lo, q_hi, " ")
+    if not runnable:
+        print("NONE")
+        return
+    runnable.sort(key=lambda b: (PRIO_RANK.get(b["prio"], 1), b["start"]))
+    pick = runnable[0]
+
+    block = lines[pick["start"]:pick["end"]]
+    # flip checkbox and stamp claim on the header's first sub-line
+    block[0] = block[0].replace("- [ ]", "- [/]", 1)
+    stamp = "  - claimed: %s  pid: %s" % (
+        datetime.datetime.now().isoformat(timespec="seconds"), PID)
+    block.insert(1, stamp)
+
+    # remove from Queue
+    del lines[pick["start"]:pick["end"]]
+
+    # re-locate In progress header (indices shifted) and insert block after its comment
+    sec = sections("\n".join(lines).split("\n"))
+    ip_lo, ip_hi = sec["In progress"]
+    insert_at = ip_lo + 1
+    while insert_at < ip_hi and (lines[insert_at].strip().startswith("<!--")
+                                 or lines[insert_at].strip() == ""):
+        insert_at += 1
+    lines[insert_at:insert_at] = block + [""]
+
+    with open(TASKS, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+    print(pick["id"])
+
+
+if __name__ == "__main__":
+    main()

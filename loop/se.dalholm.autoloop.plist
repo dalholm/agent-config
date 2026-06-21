@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Runs run-loop.sh every 5 minutes. Paths are filled in for /Users/dalholm — no edits
+  needed unless you move the repo. Modern launchctl (use bootstrap/bootout, not load):
+    launchctl bootout  gui/$(id -u)/se.dalholm.autoloop          # if already loaded
+    cp se.dalholm.autoloop.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/se.dalholm.autoloop.plist
+    launchctl kickstart gui/$(id -u)/se.dalholm.autoloop          # fire one cycle now
+
+  OVERLAP: launchd will not start a second copy of this job while one is still running —
+  a phase that outlasts 5 minutes just means intervening ticks are skipped, not queued.
+  The mkdir lock in run-loop.sh is the extra net for a manual ./run-loop.sh racing the
+  scheduled one. Either way the same task is never started twice.
+
+  PATH: launchd has a minimal environment. If `pi` isn't found, fix the PATH below to
+  include where pi lives (`which pi` in your shell, then add that dir).
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>se.dalholm.autoloop</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/dalholm/agent-config/loop/run-loop.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/dalholm/agent-config/loop</string>
+
+    <!-- Cadence: every 5 minutes (300 seconds). -->
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <!-- pi lives in nvm's node bin. NOTE: this path is tied to the node version
+             (v24.17.0). If you `nvm install` a newer node and pi moves, update this
+             with the new `which pi` dir and reload the job. -->
+        <key>PATH</key>
+        <string>/Users/dalholm/.nvm/versions/node/v24.17.0/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/Users/dalholm/.local/bin</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/dalholm/agent-config/loop/logs/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/dalholm/agent-config/loop/logs/launchd.err.log</string>
+
+    <!-- Don't fire on load; first cycle runs 15 min after you load it (or `launchctl
+         start` to fire immediately). Flip to <true/> if you want it to run on load. -->
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>

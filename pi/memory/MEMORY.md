@@ -1,0 +1,1 @@
+Next.js 16 with Turbopack handles CSS differently — it inlines CSS rather than writing to `.next/static/css/` in the traditional way. Checking that directory for CSS is not a valid diagnostic for whether styling works. <!-- created=2026-06-20, last=2026-06-20 -->
