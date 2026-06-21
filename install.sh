@@ -382,8 +382,8 @@ say ""
 
 say "Ponytail (minimal implementation layer):"
 # Ponytail is kept separate from Superpowers: Superpowers controls process; Ponytail
-# shapes implementation/review. The local AGENTS.md and skills/ponytail already provide
-# instruction-level coverage. Install the upstream plugin where lifecycle hooks/commands
+# shapes implementation/review. The local AGENTS.md (§3) already provides instruction-level
+# coverage. Install the upstream plugin where lifecycle hooks/commands
 # are useful.
 if have pi; then
   if pi list 2>/dev/null | grep -q 'ponytail'; then

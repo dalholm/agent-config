@@ -71,8 +71,8 @@ det som går att skripta och skriver ut resten:
 
 **Ponytail** körs som ett separat lager ovanpå/innanför Superpowers: Superpowers väljer
 processen, Ponytail pressar implementation och review mot minsta korrekta diff. Reglerna
-ligger redan i `AGENTS.md` och `skills/ponytail/`; installern pekar dessutom ut
-plugin-install där harnesset stödjer det.
+ligger redan i `AGENTS.md` (§3); installern pekar dessutom ut
+plugin-install (`DietrichGebert/ponytail`) där harnesset stödjer det.
 
 Pi har dessutom sitt *eget* skill-system (pi-hermes), skilt från Superpowers — se `pi/`.
 
@@ -110,8 +110,6 @@ config — kan inte symlänkas eftersom filerna håller maskin-state som tema/au
   inte vill symlinka.
 - `preferences.md` — mina stående preferenser; preference-oracle svarar utifrån denna. Fyll i den.
 - `skills/complexity-router/SKILL.md` — router som riktig skill där harnesset stödjer det.
-- `skills/ponytail/SKILL.md` — Ponytail-inspirerad minimalitetsdisciplin: YAGNI,
-  stdlib/native först, minsta korrekta diff.
 - `skills/goal-watcher/SKILL.md` — drift-väktare för autonoma körningar.
 - `skills/preference-oracle/SKILL.md` — svarar på lågrisk-frågor åt mig, eskalerar resten.
 - `skills/web-research-fallback/SKILL.md` — stoppar gissningar och söker auktoritativa källor när lokal kontext inte räcker.

@@ -74,7 +74,7 @@ Två mekanismer, en för varje sorts fil:
 
 > OBS: två sorters skills möts i Pi. `memory/skills/` är **hermes-memory**s egna
 > (procedurer agenten sparar, i `memoryDir`). Repots `../skills/` (complexity-router,
-> ponytail, goal-watcher, preference-oracle) registreras dessutom i Pi via `"skills"[]` i
+> goal-watcher, preference-oracle) registreras dessutom i Pi via `"skills"[]` i
 > `~/.pi/agent/settings.json` — samma katalog Claude använder, ingen kopia — så de
 > triggar i Pi precis som i Claude Code. `complexity-router` är den som avgör om/hur
 > mycket en uppgift går genom Superpowers.
