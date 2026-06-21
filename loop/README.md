@@ -13,6 +13,7 @@ rather than inventing a new one.
 | `run-loop.sh` | Runs **one** cycle now. Manual trigger. Builder model routed per task class. Logs to `loop/logs/`. |
 | `plan-prompt.md` | **Slice 2:** instruction the strong CLI uses to write a junior plan (+ tests) the local builder implements. Plans cache in `Projekt/Auto Plans/`. |
 | `review-gate.py` | **Slice 3:** strong-CLI review of a local cycle's branch diff before merge; `VERDICT: BLOCK` demotes the result to blocked. Tested by `test-review-gate.sh`. |
+| `finalize-strong-build.sh` | Bridges a sandboxed strong (codex) build back to the loop: relays the in-repo result out and commits the work codex couldn't (sandbox blocks `.git` + writes outside cwd). Tested by `test-finalize-strong.sh`. |
 | `ask-oracle.sh` | The `preference-oracle` — the builder calls it for decisions and phase sign-off. Now runs on a cloud CLI via `ask-cli-helper.sh`. |
 | `ask-cli-helper.sh` | Headless "stronger model" helper: tries Claude CLI, falls back to Codex. Backs the oracle, the plan pre-step, the review gate, and the BLOCKED protocol's stronger-model rung. |
 | `ensure-path.sh` | Sourced by the above to make `pi`/`node` (nvm) and `claude`/`codex` (`~/.local/bin`) resolvable under launchd's minimal PATH. |

@@ -197,21 +197,52 @@ fi
 if [ "$CYCLE_MODE" = "rescue" ]; then
   # Build with cwd = the task's repo so codex's workspace-write sandbox can write it.
   # (It can still read the vault outside cwd.) Fall back to the loop dir for repo-less tasks.
-  BUILD_CWD="$SCRIPT_DIR"
-  if [ -n "$CYCLE_REPO" ] && [ -d "$CYCLE_REPO" ]; then BUILD_CWD="$CYCLE_REPO"; fi
+  BUILD_CWD="$SCRIPT_DIR"; REPO_BUILD=0
+  if [ -n "$CYCLE_REPO" ] && [ -d "$CYCLE_REPO" ]; then BUILD_CWD="$CYCLE_REPO"; REPO_BUILD=1; fi
   echo "[$(date)] RESCUE/STRONG: building with the strong CLI (codex) in $BUILD_CWD." \
     | tee -a "$LOG_FILE"
+  # When cwd = the repo, codex is sandboxed to it: it CANNOT write the loop result file
+  # (it lives outside the repo) or git-commit (.git is blocked). So it writes the result
+  # INSIDE the repo and leaves the work uncommitted; finalize-strong-build.sh (after the
+  # build, in this normal unsandboxed shell) relays the result out and commits. Repo-less
+  # tasks keep cwd = the loop dir, so codex writes the result directly — nothing to commit.
+  if [ "$REPO_BUILD" = 1 ]; then
+    rm -f "$BUILD_CWD/.loop-result.json"
+    RESULT_INSTR="Write your result JSON to ./.loop-result.json in the repo root — you are sandboxed to this repo and CANNOT write outside it. Do NOT run git commit (the sandbox blocks .git); just leave your changes in the working tree on the task branch. The loop runner commits your work and relays the result for you."
+  else
+    RESULT_INSTR="Write your result JSON to $RESULT_FILE as usual."
+  fi
   # The strong builder cannot spawn the oracle: the oracle is another cloud CLI, and a
   # nested codex/claude fails inside the build sandbox ("in-process app-server: Operation
   # not permitted"). So tell it to BE its own skeptical reviewer and gate on tests — not
   # call ask-oracle.sh. The hard gate (green tests before status:done) is what matters.
-  STRONG_NOTE=$'\n\n---\n# STRONG-BUILD MODE (overrides the oracle steps above)\nYou ARE the strong cloud builder running this cycle directly. The separate oracle is\nanother cloud CLI that cannot be spawned inside your sandbox — loop/ask-oracle.sh and\nloop/ask-cli-helper.sh WILL fail, and that is expected, NOT a BLOCK.\n- Do NOT call the oracle for kickoff or sign-off; do not treat its absence as blocked.\n- Be your own skeptical, YAGNI reviewer: build only what the Done-when and the spec\x27s\n  locked decisions require; never expand scope.\n- The gate is real: write status:done ONLY after the actual gate is green (cargo test).\n  If you cannot get it green, write status:blocked with a one-line reason.\n- Everything else still applies: work on the branch, commit, write loop/.cycle-result.json,\n  never touch main.'
+  STRONG_NOTE="
+
+---
+# STRONG-BUILD MODE (overrides the oracle steps above)
+You ARE the strong cloud builder running this cycle directly. The separate oracle is
+another cloud CLI that cannot be spawned inside your sandbox — loop/ask-oracle.sh and
+loop/ask-cli-helper.sh WILL fail, and that is expected, NOT a BLOCK.
+- Do NOT call the oracle for kickoff or sign-off; do not treat its absence as blocked.
+- Be your own skeptical, YAGNI reviewer: build only what the Done-when and the spec's
+  locked decisions require; never expand scope.
+- The gate is real: write status:done ONLY after the actual gate is green (e.g. cargo test).
+  If you cannot get it green, write status:blocked with a one-line reason.
+- Work on the task branch (create it from main); never touch main.
+- $RESULT_INSTR"
   # codex is the verified strong builder (reads the vault, writes the repo, runs tests).
   ( cd "$BUILD_CWD" && \
     HELPER_CLI="${RESCUE_CLI:-codex}" HELPER_MODE=build HELPER_TIMEOUT="$MAX_CYCLE_SECONDS" \
     HELPER_CHANNEL=stronger-model \
       "$SCRIPT_DIR/ask-cli-helper.sh" "$(cat "$PROMPT_FILE")$STRONG_NOTE" ) >>"$LOG_FILE" 2>&1 \
     || echo "[$(date)] rescue CLI exited non-zero; result file (if any) decides." >>"$LOG_FILE"
+  # Bridge the sandboxed build back: relay the in-repo result out to $RESULT_FILE and commit
+  # the work codex couldn't (it can't write outside cwd or touch .git). No-op for repo-less
+  # builds (codex wrote the result directly) and when no result was produced (crash → resume).
+  if [ "$REPO_BUILD" = 1 ]; then
+    "$SCRIPT_DIR/finalize-strong-build.sh" "$BUILD_CWD" ".loop-result.json" "$RESULT_FILE" "$CLAIMED" \
+      >>"$LOG_FILE" 2>&1 || echo "[$(date)] finalize-strong-build had an issue; see log." >>"$LOG_FILE"
+  fi
 else
   run_pi
 fi
