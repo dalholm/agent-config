@@ -21,9 +21,12 @@
 # Env knobs:
 #   HELPER_CLI       auto (default) | claude | codex
 #   HELPER_CHANNEL   stronger-model (default) | oracle   — who the builder is talking to
+#   HELPER_MODE      consult (default, READ-ONLY advice) | build (WRITE — can edit the
+#                    repo, run tools, and commit). build is the loop's last-ditch rescue:
+#                    a strong CLI actually finishes a task the local builder stalled on.
 #   CLAUDE_BIN       claude   (override path/name)
 #   CODEX_BIN        codex    (override path/name)
-#   HELPER_TIMEOUT   per-call wall-clock cap in seconds (default 300)
+#   HELPER_TIMEOUT   per-call wall-clock cap in seconds (default 300 consult / 2700 build)
 #
 # NOTE: the exact CLI flags below are the only harness-specific bit. Verify them once
 # against your installed versions (`claude --help`, `codex --help`) and adjust if needed.
@@ -40,9 +43,13 @@ if [ -z "$PROMPT" ]; then
 fi
 
 CHANNEL="${HELPER_CHANNEL:-stronger-model}"
+MODE="${HELPER_MODE:-consult}"
 CLAUDE_BIN="${CLAUDE_BIN:-claude}"
 CODEX_BIN="${CODEX_BIN:-codex}"
-TIMEOUT_SECS="${HELPER_TIMEOUT:-300}"
+# build cycles run a full task (edit + test + commit) so they need the cycle-length cap,
+# not the short consult cap.
+if [ "$MODE" = "build" ]; then TIMEOUT_SECS="${HELPER_TIMEOUT:-2700}"
+else TIMEOUT_SECS="${HELPER_TIMEOUT:-300}"; fi
 
 _have() { command -v "$1" >/dev/null 2>&1; }
 _log()  { printf '%s' "$2" | "$CONVLOG" "$1" "$3" "$4" - 2>/dev/null || true; }
@@ -55,19 +62,30 @@ _cap() {
 
 # Claude Code, headless:
 #   -p / --print     run non-interactively, print the result, exit.
-#   --allowedTools   read-only consultation — the oracle may read preferences.md / specs
-#                    but must never modify the repo. (Verify the flag name for your build.)
+#   consult mode     --allowedTools "Read Grep Glob" — read-only; the oracle may read
+#                    preferences.md / specs but must never modify the repo.
+#   build mode       --permission-mode bypassPermissions — full write access so the rescue
+#                    can edit, run tests, and commit. (Verify both flag names for your build.)
 run_claude() {
   _have "$CLAUDE_BIN" || return 127
-  _cap "$CLAUDE_BIN" -p --allowedTools "Read Grep Glob" "$PROMPT"
+  if [ "$MODE" = "build" ]; then
+    _cap "$CLAUDE_BIN" -p --permission-mode bypassPermissions "$PROMPT"
+  else
+    _cap "$CLAUDE_BIN" -p --allowedTools "Read Grep Glob" "$PROMPT"
+  fi
 }
 
 # Codex CLI, headless:
-#   exec                  non-interactive subcommand.
-#   --sandbox read-only   it can read to reason, but can't write to the repo.
+#   exec                       non-interactive subcommand.
+#   --sandbox read-only        consult: read to reason, can't write to the repo.
+#   --sandbox workspace-write  build: can edit the repo, run tools, and commit.
 run_codex() {
   _have "$CODEX_BIN" || return 127
-  _cap "$CODEX_BIN" exec --sandbox read-only "$PROMPT"
+  if [ "$MODE" = "build" ]; then
+    _cap "$CODEX_BIN" exec --sandbox workspace-write "$PROMPT"
+  else
+    _cap "$CODEX_BIN" exec --sandbox read-only "$PROMPT"
+  fi
 }
 
 # Record the outgoing question (builder → oracle/stronger-model).

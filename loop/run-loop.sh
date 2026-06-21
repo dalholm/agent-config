@@ -107,13 +107,33 @@ if [ "$CLAIMED" = "NONE" ] || [ -z "$CLAIMED" ]; then
 fi
 echo "[$(date)] claimed task: $CLAIMED" | tee -a "$LOG_FILE"
 
+# claim-task.sh wrote who should execute this cycle: "local" (the pi builder) or "rescue"
+# (the strong cloud CLI with write access — last-ditch after the local builder stalled).
+CYCLE_MODE="$(cat "$SCRIPT_DIR/.claim-mode" 2>/dev/null || echo local)"
+
 # Chat transcript: record the kickoff — the instruction prompt the loop hands the builder.
 # (This is "the autonomous starting a chat with instructions" shown in the dashboard.)
 { cat "$PROMPT_FILE"; printf '\n\n[cycle instruction — claimed task: %s]\n' "$CLAIMED"; } \
   | "$SCRIPT_DIR/conv-log.sh" "loop" "builder" "instruction" - || true
 
+# Clear any stale result file so a cycle that crashes without writing one can't be
+# mis-completed from a previous cycle's leftover (complete-task.sh keys off this file).
+rm -f "$RESULT_FILE"
+
 # Run one cycle on the claimed task (output → log; watch with `tail -f` or the dashboard).
-run_pi
+# Last-ditch rescue: if the local builder has already stalled this task its allotted times,
+# claim-task.sh flips the mode to "rescue" and we hand the SAME cycle prompt to the strong
+# cloud CLI in write mode — it can actually finish (edit, test, commit) instead of advise.
+# It writes the same .cycle-result.json, so completion below is identical for both paths.
+if [ "$CYCLE_MODE" = "rescue" ]; then
+  echo "[$(date)] RESCUE: local builder stalled — handing cycle to strong CLI (build mode)." \
+    | tee -a "$LOG_FILE"
+  HELPER_MODE=build HELPER_TIMEOUT="$MAX_CYCLE_SECONDS" HELPER_CHANNEL=stronger-model \
+    "$SCRIPT_DIR/ask-cli-helper.sh" "$(cat "$PROMPT_FILE")" >>"$LOG_FILE" 2>&1 \
+    || echo "[$(date)] rescue CLI exited non-zero; result file (if any) decides." >>"$LOG_FILE"
+else
+  run_pi
+fi
 
 # Chat transcript: record the builder's reply — its structured result (or a crash note).
 if [ -f "$RESULT_FILE" ]; then

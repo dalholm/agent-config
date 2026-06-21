@@ -11,4 +11,5 @@ pi/memory/sessions.db-shm
 loop/logs/
 loop/.loop.lock/
 loop/.cycle-result.json
+loop/.claim-mode
 loop/__pycache__/

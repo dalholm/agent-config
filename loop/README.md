@@ -38,6 +38,26 @@ wake → read Auto Tasks.md → pick top runnable Queue task (one!)
 
 One task per wake, on purpose. The cadence (you, or the schedule) decides the next cycle.
 
+### Resume ladder — self-rescue before it ever escalates to you
+
+A crashed/unfinished cycle leaves the task in `## In progress`; the next cycle resumes it
+(`claim-task.sh` counts `resume-attempts:`). The escalation to you is the *last* rung, not
+the first:
+
+1. **Local resumes** (attempts 1–2): the local builder retries, diagnosing the real
+   blocker with the stronger model first (loop-prompt step 2).
+2. **Strong-CLI rescue** (attempt 3): instead of giving up, the shell flips the cycle to
+   `rescue` mode (`.claim-mode`) and hands the **same** cycle to the strong cloud CLI in
+   **write mode** (`ask-cli-helper.sh HELPER_MODE=build`) — Claude/Codex actually edits,
+   tests, and commits, not just advises. It writes the same `.cycle-result.json`, so
+   completion is identical.
+3. **Park for you** (attempt 4): only once the local resumes *and* the strong-CLI rescue
+   have all failed does the task move to `## Blocked / escalated to me`.
+
+So a task that lands in Blocked has genuinely exhausted both the local builder and a
+stronger cloud agent — it's a real dead-end, not a flaky stall. Tune the rungs via
+`RESCUE_AT` / `PARK_AT` in `claim-task.sh`.
+
 ## Run it (manual, the current mode)
 
 ```sh

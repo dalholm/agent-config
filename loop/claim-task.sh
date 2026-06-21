@@ -25,6 +25,24 @@ TASKS = os.environ.get(
 )
 PID = sys.argv[1] if len(sys.argv) > 1 else str(os.getpid())
 
+# Sidecar telling run-loop.sh WHO should execute this cycle:
+#   "local"  → the local builder model (pi) — the default.
+#   "rescue" → the strong cloud CLI (Claude/Codex) with write access — the last-ditch
+#              attempt, after the local model has burned its resumes but before we give up.
+CLAIM_MODE_FILE = os.environ.get(
+    "CLAIM_MODE_FILE",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), ".claim-mode"),
+)
+# Resume ladder: local attempts 1..(RESCUE_AT-1), one strong-CLI rescue at RESCUE_AT,
+# then park in Blocked once even the rescue has failed (>= PARK_AT).
+RESCUE_AT = 3
+PARK_AT = 4
+
+
+def write_mode(mode):
+    with open(CLAIM_MODE_FILE, "w", encoding="utf-8") as f:
+        f.write(mode)
+
 HEADER = re.compile(r"^- \[([ x/!])\] \*\*(T-\d+)\*\*")
 PRIO = re.compile(r"`prio:(high|med|low)`")
 PRIO_RANK = {"high": 0, "med": 1, "low": 2}
@@ -91,11 +109,11 @@ def main():
                 ai, attempts = k, int(mm.group(1))
                 break
         attempts += 1
-        if attempts >= 3:
-            # crashed too many times → park in Blocked, then fall through to claim next
+        if attempts >= PARK_AT:
+            # local resumes AND the strong-CLI rescue all failed → park for the human.
             block = lines[s:e]
             block[0] = block[0].replace("- [/]", "- [!]", 1)
-            block.insert(1, "  - blocked: crashed %dx without finishing — needs your eyes" % attempts)
+            block.insert(1, "  - blocked: %dx failed (local resumes + strong-CLI rescue) — needs your eyes" % attempts)
             del lines[s:e]
             bsec = sections(lines)
             bname = next((n for n in bsec if n.startswith("Blocked")), None)
@@ -117,6 +135,9 @@ def main():
                 lines.insert(s + 1, counter)
             with open(TASKS, "w", encoding="utf-8") as f:
                 f.write("\n".join(lines))
+            # Last-ditch: hand attempt RESCUE_AT to the strong cloud CLI instead of the
+            # local builder that has already stalled this many times.
+            write_mode("rescue" if attempts >= RESCUE_AT else "local")
             print(blk["id"])  # resume this one; don't claim another
             return
 
@@ -150,6 +171,7 @@ def main():
 
     with open(TASKS, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
+    write_mode("local")  # a fresh task starts on the local builder
     print(pick["id"])
 
 
