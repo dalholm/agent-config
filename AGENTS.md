@@ -180,8 +180,15 @@ says another, follow the user.
 
 ## 8. Specs & plans live in Obsidian
 
-Written specs and plans are stored in my Obsidian vault — not scattered across repos.
-The canonical folder is:
+Use my Obsidian vault as the persistent project memory. When I ask about projects,
+plans, decisions, prior work, or context that may already exist, search the whole
+vault before guessing:
+
+**`~/Documents/Obsidian/dalholm/`**
+(absolute: `/Users/dalholm/Documents/Obsidian/dalholm/`)
+
+Written specs and plans are stored in that vault — not scattered across repos. The
+canonical folder for specs and plans is:
 
 **`~/Documents/Obsidian/dalholm/Projekt/Specs/`**
 (absolute: `/Users/dalholm/Documents/Obsidian/dalholm/Projekt/Specs/`)
