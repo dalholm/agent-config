@@ -58,6 +58,14 @@ MODEL="lmstudio/qwen/qwen3.6-35b-a3b"   # BUILDER model — load it in LM Studio
 export LOOP_GUARD_OFF=1
 MAX_CYCLE_SECONDS="${MAX_CYCLE_SECONDS:-2700}"   # 45 min
 
+# Let the builder read the spec/task notes that live in the Obsidian vault. pi's
+# lean-ctx context layer sandboxes file reads to the project root (here agent-config),
+# so ctx_read of the vault hard-fails ("path escapes project root") and the builder
+# flails after specs it can't see. LEAN_CTX_EXTRA_ROOTS adds the vault's Projekt/ folder
+# to lean-ctx's PathJail allow-list. Scoped to the loop only — other pi projects keep
+# their tighter sandbox. ponytail: widen to the parent vault dir if specs ever link out.
+export LEAN_CTX_EXTRA_ROOTS="${LEAN_CTX_EXTRA_ROOTS:-/Users/dalholm/Documents/Obsidian/dalholm/Projekt}"
+
 # Background watchdog: kill pi if a cycle runs past the wall-clock cap.
 _watchdog() {
   local pid=$1
