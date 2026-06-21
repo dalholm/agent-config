@@ -5,6 +5,10 @@ min agent-config:
 
 - `models.json` — lokala providers (LM Studio). Det här är vad som gör att Pi har
   modeller att välja på utan `/login`.
+- `models-routing.json` — handsorterad `task-class → lokal builder-modell` för loopen.
+  Läses av `loop/claim-task.sh` vid claim (taggen `class:` i Auto Tasks.md); `run-loop.sh`
+  kör modellen som hamnar i `.claim-model`. Medvetet **inte** självmodifierande — redigera
+  för hand. Saknad fil/okänd klass → säker default (qwen-35b).
 - [`pi-hermes-memory`](https://pi.dev/packages/pi-hermes-memory) — persistent minne,
   sessionssök och secret-scanning (`hermes-memory-config.json` + `memory/`).
 - `extensions/loop-guard-mine.ts` — lokal loop-vakt som installerats med

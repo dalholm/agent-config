@@ -1,0 +1,10 @@
+{
+  "_doc": "Hand-ordered, declarative task-class -> local builder model. Read at claim time by loop/claim-task.sh; run-loop.sh runs whatever model lands in .claim-model. Edit by hand when your gut says a model changed - it is deliberately NOT self-mutating (see the spec: a self-reordering scorecard is noise at single-developer volume). Tag a task with `class:<name>` in Auto Tasks.md; absent -> default_class. Unknown class -> fallback_model.",
+  "default_class": "coding-general",
+  "fallback_model": "lmstudio/qwen/qwen3.6-35b-a3b",
+  "classes": {
+    "mechanical-small": "lmstudio/gemma-4-12b-it-qat",
+    "coding-general": "lmstudio/qwen/qwen3.6-35b-a3b",
+    "fuzzy-large": "lmstudio/qwen/qwen3.6-35b-a3b"
+  }
+}

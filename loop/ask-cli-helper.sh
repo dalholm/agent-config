@@ -36,6 +36,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONVLOG="$SCRIPT_DIR/conv-log.sh"
 
+# Resolve claude/codex (and pi/node) under a minimal launchd/cron PATH. See ensure-path.sh.
+# shellcheck source=ensure-path.sh
+. "$SCRIPT_DIR/ensure-path.sh"
+
 PROMPT="${1:-}"
 if [ -z "$PROMPT" ]; then
   echo "usage: ask-cli-helper.sh \"<prompt>\"" >&2

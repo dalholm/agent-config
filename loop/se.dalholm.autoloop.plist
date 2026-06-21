@@ -12,8 +12,9 @@
   The mkdir lock in run-loop.sh is the extra net for a manual ./run-loop.sh racing the
   scheduled one. Either way the same task is never started twice.
 
-  PATH: launchd has a minimal environment. If `pi` isn't found, fix the PATH below to
-  include where pi lives (`which pi` in your shell, then add that dir).
+  PATH: launchd has a minimal environment, but run-loop.sh sources ensure-path.sh, which
+  dynamically adds the nvm node bin that holds `pi` (+ node) and ~/.local/bin (claude/codex).
+  So the PATH below is only a generic fallback — no version-specific edits needed.
 -->
 <plist version="1.0">
 <dict>
@@ -35,11 +36,11 @@
 
     <key>EnvironmentVariables</key>
     <dict>
-        <!-- pi lives in nvm's node bin. NOTE: this path is tied to the node version
-             (v24.17.0). If you `nvm install` a newer node and pi moves, update this
-             with the new `which pi` dir and reload the job. -->
+        <!-- Generic fallback only. run-loop.sh -> ensure-path.sh resolves the nvm node bin
+             (where pi + node live) dynamically by version, so this does NOT need editing
+             when you `nvm install` a newer node. ~/.local/bin holds claude/codex. -->
         <key>PATH</key>
-        <string>/Users/dalholm/.nvm/versions/node/v24.17.0/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/Users/dalholm/.local/bin</string>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/Users/dalholm/.local/bin</string>
     </dict>
 
     <key>StandardOutPath</key>

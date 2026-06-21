@@ -39,11 +39,20 @@ fixture_inprogress() { # fixture_inprogress <attempts>
 EOF
 }
 
-run_claim() { # run_claim <fixturefile> ; echoes claimed id. Read mode from $TMP/mode after.
-  rm -f "$TMP/mode"
-  CLAIM_MODE_FILE="$TMP/mode" AUTO_TASKS="$1" python3 "$DIR/claim-task.sh" 12345
+# Hermetic routing fixture so model-routing assertions don't depend on the real config.
+ROUTING="$TMP/routing.json"
+cat > "$ROUTING" <<'EOF'
+{ "default_class": "coding-general", "fallback_model": "lmstudio/FALLBACK",
+  "classes": { "mechanical-small": "lmstudio/SMALL", "coding-general": "lmstudio/GENERAL" } }
+EOF
+
+run_claim() { # run_claim <fixturefile> ; echoes claimed id. mode/model land in $TMP after.
+  rm -f "$TMP/mode" "$TMP/model"
+  CLAIM_MODE_FILE="$TMP/mode" CLAIM_MODEL_FILE="$TMP/model" MODELS_ROUTING="$ROUTING" \
+    AUTO_TASKS="$1" python3 "$DIR/claim-task.sh" 12345
 }
 read_mode() { cat "$TMP/mode" 2>/dev/null || echo MISSING; }
+read_model() { cat "$TMP/model" 2>/dev/null || echo MISSING; }
 
 echo "test: 2 prior resumes -> third attempt is a RESCUE (not parked)"
 F="$TMP/a.md"; fixture_inprogress 2 > "$F"
@@ -94,6 +103,54 @@ EOF
 ID="$(run_claim "$F")"; MODE="$(read_mode)"
 check "claims the strong task"       "T-020"  "$ID"
 check "mode is rescue from attempt 1" "rescue" "$MODE"
+
+echo "test: model routing — default class -> coding-general model"
+F="$TMP/m1.md"; cat > "$F" <<'EOF'
+# Auto Tasks
+## Queue
+<!-- c -->
+- [ ] **T-030** A normal task `prio:med`
+  - **Done when:** x
+  - **Branch:** auto/T-030-x
+## In progress
+<!-- c -->
+## Blocked / escalated to me
+<!-- c -->
+## Done
+EOF
+run_claim "$F" >/dev/null; check "default class -> general model" "lmstudio/GENERAL" "$(read_model)"
+
+echo "test: model routing — class:mechanical-small -> small model"
+F="$TMP/m2.md"; cat > "$F" <<'EOF'
+# Auto Tasks
+## Queue
+<!-- c -->
+- [ ] **T-031** Tiny mechanical task `prio:med` `class:mechanical-small`
+  - **Done when:** x
+  - **Branch:** auto/T-031-x
+## In progress
+<!-- c -->
+## Blocked / escalated to me
+<!-- c -->
+## Done
+EOF
+run_claim "$F" >/dev/null; check "mechanical-small -> small model" "lmstudio/SMALL" "$(read_model)"
+
+echo "test: model routing — unknown class -> fallback model"
+F="$TMP/m3.md"; cat > "$F" <<'EOF'
+# Auto Tasks
+## Queue
+<!-- c -->
+- [ ] **T-032** Odd task `prio:med` `class:nonsense-xyz`
+  - **Done when:** x
+  - **Branch:** auto/T-032-x
+## In progress
+<!-- c -->
+## Blocked / escalated to me
+<!-- c -->
+## Done
+EOF
+run_claim "$F" >/dev/null; check "unknown class -> fallback model" "lmstudio/FALLBACK" "$(read_model)"
 
 echo
 if [ "$fails" -eq 0 ]; then echo "ALL PASS"; else echo "$fails FAILURES"; exit 1; fi

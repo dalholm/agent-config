@@ -17,7 +17,7 @@ which is what caused the same task to restart every cycle.
 Usage:  claim-task.sh <pid>          (pid stamped into the claim)
 Env:    AUTO_TASKS  overrides the task-list path.
 """
-import os, re, sys, datetime
+import os, re, sys, datetime, json
 
 TASKS = os.environ.get(
     "AUTO_TASKS",
@@ -40,6 +40,21 @@ CLAIM_REPO_FILE = os.environ.get(
     "CLAIM_REPO_FILE",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), ".claim-repo"),
 )
+# Sidecar with the local builder MODEL routed for this cycle, resolved from the task's
+# `class:` tag against pi/models-routing.json. run-loop.sh reads it instead of hardcoding a
+# model, so a small mechanical task can run on a faster small local model. Only consulted
+# for local cycles (rescue cycles use the strong CLI, not this).
+CLAIM_MODEL_FILE = os.environ.get(
+    "CLAIM_MODEL_FILE",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), ".claim-model"),
+)
+MODELS_ROUTING = os.environ.get(
+    "MODELS_ROUTING",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pi", "models-routing.json"),
+)
+# Safe default if routing is missing/unreadable — the proven general local builder.
+DEFAULT_CLASS = "coding-general"
+DEFAULT_MODEL = "lmstudio/qwen/qwen3.6-35b-a3b"
 # Resume ladder: local attempts 1..(RESCUE_AT-1), one strong-CLI rescue at RESCUE_AT,
 # then park in Blocked once even the rescue has failed (>= PARK_AT).
 RESCUE_AT = 3
@@ -66,6 +81,30 @@ def extract_repo(header_line):
 def write_repo(path):
     with open(CLAIM_REPO_FILE, "w", encoding="utf-8") as f:
         f.write(path)
+
+
+def extract_class(header_line):
+    """Pull the task class out of a `class:<name>` tag; default when absent."""
+    m = re.search(r"`?class:([a-z0-9-]+)`?", header_line)
+    return m.group(1) if m else DEFAULT_CLASS
+
+
+def resolve_model(task_class):
+    """Map a task class to a local builder model via models-routing.json. Robust: any
+    problem (missing file, bad JSON, unknown class) falls back to a safe default, so the
+    loop never dies on routing."""
+    try:
+        with open(MODELS_ROUTING, "r", encoding="utf-8") as f:
+            routing = json.load(f)
+    except (OSError, ValueError):
+        return DEFAULT_MODEL
+    fallback = routing.get("fallback_model", DEFAULT_MODEL)
+    return routing.get("classes", {}).get(task_class, fallback)
+
+
+def write_model(header_line):
+    with open(CLAIM_MODEL_FILE, "w", encoding="utf-8") as f:
+        f.write(resolve_model(extract_class(header_line)))
 
 HEADER = re.compile(r"^- \[([ x/!])\] \*\*(T-\d+)\*\*")
 PRIO = re.compile(r"`prio:(high|med|low)`")
@@ -164,6 +203,7 @@ def main():
             strong = is_strong(lines[s]) or attempts >= RESCUE_AT
             write_mode("rescue" if strong else "local")
             write_repo(extract_repo(lines[s]))
+            write_model(lines[s])
             print(blk["id"])  # resume this one; don't claim another
             return
 
@@ -200,6 +240,7 @@ def main():
     # builder:strong pins to the strong CLI from the first attempt; else the local builder.
     write_mode("rescue" if is_strong(block[0]) else "local")
     write_repo(extract_repo(block[0]))
+    write_model(block[0])
     print(pick["id"])
 
 

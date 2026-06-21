@@ -17,6 +17,12 @@ RESULT_FILE="$SCRIPT_DIR/.cycle-result.json"   # builder writes this; chat log r
 LOG_DIR="$SCRIPT_DIR/logs"
 mkdir -p "$LOG_DIR"
 
+# Make pi/node + the claude/codex CLIs resolvable even under launchd's minimal PATH (they
+# live in nvm and ~/.local/bin, neither of which a non-interactive shell loads). Sourced
+# early so the lock, claim, pi run, and ask-cli-helper child all inherit the fixed PATH.
+# shellcheck source=ensure-path.sh
+. "$SCRIPT_DIR/ensure-path.sh"
+
 # ── Single-instance lock ──────────────────────────────────────────────────────
 # Never run two cycles at once. A task can take far longer than the 15-min schedule;
 # every tick that fires while a cycle is still running must skip, NOT start the task
@@ -44,7 +50,10 @@ LOG_FILE="$LOG_DIR/cycle-$STAMP.log"
 #   -p / --print          → non-interactive: print response and exit (one-shot cycle)
 #   --model <provider/id> → pin the model (custom providers from ~/.pi/agent/models.json)
 #   message arg           → the prompt text (we pass the whole loop-prompt as the message)
-MODEL="lmstudio/qwen/qwen3.6-35b-a3b"   # BUILDER model — load it in LM Studio first
+MODEL="lmstudio/qwen/qwen3.6-35b-a3b"   # BUILDER fallback — load it in LM Studio first.
+# Per-task routing OVERRIDES this below: claim-task.sh resolves the task's `class:` tag
+# against pi/models-routing.json and writes the chosen model to .claim-model. This pin is
+# only used if routing wrote nothing (older claim / missing routing file).
 # The preference-oracle is NOT pinned here. The oracle runs on a cloud coding CLI
 # (Claude, falling back to Codex) via loop/ask-oracle.sh -> loop/ask-cli-helper.sh — a
 # genuinely independent voice, separate from the local builder model. No second local
@@ -99,8 +108,9 @@ run_pi() {
 echo "[$(date)] loop cycle start" | tee -a "$LOG_FILE"
 
 if ! command -v pi >/dev/null 2>&1; then
-  echo "ERROR: 'pi' not found on PATH. Open an interactive shell or fix PATH in the" \
-       "launchd plist (launchd has a minimal PATH)." | tee -a "$LOG_FILE"
+  echo "ERROR: 'pi' not found on PATH even after ensure-path.sh. Is pi installed as an" \
+       "nvm-global package? Set PI_BIN_DIR to its bin dir, or reinstall with 'npm i -g pi'." \
+       | tee -a "$LOG_FILE"
   exit 127
 fi
 
@@ -118,6 +128,11 @@ echo "[$(date)] claimed task: $CLAIMED" | tee -a "$LOG_FILE"
 # claim-task.sh wrote who should execute this cycle: "local" (the pi builder) or "rescue"
 # (the strong cloud CLI with write access — last-ditch after the local builder stalled).
 CYCLE_MODE="$(cat "$SCRIPT_DIR/.claim-mode" 2>/dev/null || echo local)"
+# Per-task builder model routed by claim-task.sh from the task's class. Fall back to the
+# pin above if routing wrote nothing. (Only used for local cycles; rescue uses the CLI.)
+CLAIMED_MODEL="$(cat "$SCRIPT_DIR/.claim-model" 2>/dev/null || true)"
+[ -n "$CLAIMED_MODEL" ] && MODEL="$CLAIMED_MODEL"
+echo "[$(date)] builder model: $MODEL (mode: $CYCLE_MODE)" | tee -a "$LOG_FILE"
 # The claimed task's repo (if any). A strong-CLI build must run with cwd = this repo:
 # codex's workspace-write sandbox only allows writes under cwd, so building from the loop
 # dir would let codex read the spec vault but fail every write to the target repo.

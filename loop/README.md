@@ -80,6 +80,12 @@ You picked manual-first. When you trust it, enable the launchd job — see the c
 at the top of `se.dalholm.autoloop.plist`. The example fires at 08/12/16/20 daily; edit
 the times or swap to `StartInterval` for "every N seconds".
 
+**PATH under launchd is handled.** `pi` lives in nvm (and needs `node`); `claude`/`codex`
+are in `~/.local/bin` — none of which launchd's minimal environment loads. `run-loop.sh`
+and `ask-cli-helper.sh` source `ensure-path.sh`, which resolves the nvm node bin *by where
+`pi` is* (so a `nvm install` of a newer node needs no edits) plus `~/.local/bin`. Override
+the nvm dir with `PI_BIN_DIR` if needed.
+
 ## Safety rails (already enforced)
 
 - **Plan-bounded:** tasks must have a `Done when:` line. Open-ended work is refused.

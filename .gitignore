@@ -13,4 +13,5 @@ loop/.loop.lock/
 loop/.cycle-result.json
 loop/.claim-mode
 loop/.claim-repo
+loop/.claim-model
 loop/__pycache__/
