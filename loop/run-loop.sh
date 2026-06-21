@@ -118,6 +118,10 @@ echo "[$(date)] claimed task: $CLAIMED" | tee -a "$LOG_FILE"
 # claim-task.sh wrote who should execute this cycle: "local" (the pi builder) or "rescue"
 # (the strong cloud CLI with write access — last-ditch after the local builder stalled).
 CYCLE_MODE="$(cat "$SCRIPT_DIR/.claim-mode" 2>/dev/null || echo local)"
+# The claimed task's repo (if any). A strong-CLI build must run with cwd = this repo:
+# codex's workspace-write sandbox only allows writes under cwd, so building from the loop
+# dir would let codex read the spec vault but fail every write to the target repo.
+CYCLE_REPO="$(cat "$SCRIPT_DIR/.claim-repo" 2>/dev/null || true)"
 
 # Chat transcript: record the kickoff — the instruction prompt the loop hands the builder.
 # (This is "the autonomous starting a chat with instructions" shown in the dashboard.)
@@ -134,13 +138,22 @@ rm -f "$RESULT_FILE"
 # cloud CLI in write mode — it can actually finish (edit, test, commit) instead of advise.
 # It writes the same .cycle-result.json, so completion below is identical for both paths.
 if [ "$CYCLE_MODE" = "rescue" ]; then
-  echo "[$(date)] RESCUE/STRONG: building this cycle with the strong CLI (codex, build mode)." \
+  # Build with cwd = the task's repo so codex's workspace-write sandbox can write it.
+  # (It can still read the vault outside cwd.) Fall back to the loop dir for repo-less tasks.
+  BUILD_CWD="$SCRIPT_DIR"
+  if [ -n "$CYCLE_REPO" ] && [ -d "$CYCLE_REPO" ]; then BUILD_CWD="$CYCLE_REPO"; fi
+  echo "[$(date)] RESCUE/STRONG: building with the strong CLI (codex) in $BUILD_CWD." \
     | tee -a "$LOG_FILE"
-  # codex is the verified strong builder (reads the vault, writes the repo, runs tests);
-  # claude stays the auto fallback for the oracle. Override with HELPER_CLI if needed.
-  HELPER_CLI="${RESCUE_CLI:-codex}" HELPER_MODE=build HELPER_TIMEOUT="$MAX_CYCLE_SECONDS" \
-  HELPER_CHANNEL=stronger-model \
-    "$SCRIPT_DIR/ask-cli-helper.sh" "$(cat "$PROMPT_FILE")" >>"$LOG_FILE" 2>&1 \
+  # The strong builder cannot spawn the oracle: the oracle is another cloud CLI, and a
+  # nested codex/claude fails inside the build sandbox ("in-process app-server: Operation
+  # not permitted"). So tell it to BE its own skeptical reviewer and gate on tests — not
+  # call ask-oracle.sh. The hard gate (green tests before status:done) is what matters.
+  STRONG_NOTE=$'\n\n---\n# STRONG-BUILD MODE (overrides the oracle steps above)\nYou ARE the strong cloud builder running this cycle directly. The separate oracle is\nanother cloud CLI that cannot be spawned inside your sandbox — loop/ask-oracle.sh and\nloop/ask-cli-helper.sh WILL fail, and that is expected, NOT a BLOCK.\n- Do NOT call the oracle for kickoff or sign-off; do not treat its absence as blocked.\n- Be your own skeptical, YAGNI reviewer: build only what the Done-when and the spec\x27s\n  locked decisions require; never expand scope.\n- The gate is real: write status:done ONLY after the actual gate is green (cargo test).\n  If you cannot get it green, write status:blocked with a one-line reason.\n- Everything else still applies: work on the branch, commit, write loop/.cycle-result.json,\n  never touch main.'
+  # codex is the verified strong builder (reads the vault, writes the repo, runs tests).
+  ( cd "$BUILD_CWD" && \
+    HELPER_CLI="${RESCUE_CLI:-codex}" HELPER_MODE=build HELPER_TIMEOUT="$MAX_CYCLE_SECONDS" \
+    HELPER_CHANNEL=stronger-model \
+      "$SCRIPT_DIR/ask-cli-helper.sh" "$(cat "$PROMPT_FILE")$STRONG_NOTE" ) >>"$LOG_FILE" 2>&1 \
     || echo "[$(date)] rescue CLI exited non-zero; result file (if any) decides." >>"$LOG_FILE"
 else
   run_pi

@@ -33,6 +33,13 @@ CLAIM_MODE_FILE = os.environ.get(
     "CLAIM_MODE_FILE",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), ".claim-mode"),
 )
+# Sidecar with the claimed task's repo path (from its `repo:` tag), so run-loop can run a
+# strong-CLI build with cwd = the repo. codex's workspace-write sandbox only allows writes
+# under cwd, so without this the build can read the vault but cannot write the repo.
+CLAIM_REPO_FILE = os.environ.get(
+    "CLAIM_REPO_FILE",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), ".claim-repo"),
+)
 # Resume ladder: local attempts 1..(RESCUE_AT-1), one strong-CLI rescue at RESCUE_AT,
 # then park in Blocked once even the rescue has failed (>= PARK_AT).
 RESCUE_AT = 3
@@ -48,6 +55,17 @@ def is_strong(header_line):
     """A `builder:strong` tag pins the task to the strong cloud CLI (codex/claude) from
     attempt 1 — for heavy/fuzzy phases the local builder keeps stalling on."""
     return "builder:strong" in header_line
+
+
+def extract_repo(header_line):
+    """Pull the repo path out of a `repo:/abs/path` tag (backtick-wrapped). Empty if none."""
+    m = re.search(r"`?repo:([^`\s]+)`?", header_line)
+    return m.group(1) if m else ""
+
+
+def write_repo(path):
+    with open(CLAIM_REPO_FILE, "w", encoding="utf-8") as f:
+        f.write(path)
 
 HEADER = re.compile(r"^- \[([ x/!])\] \*\*(T-\d+)\*\*")
 PRIO = re.compile(r"`prio:(high|med|low)`")
@@ -145,6 +163,7 @@ def main():
             # hands attempt RESCUE_AT to the strong cloud CLI.
             strong = is_strong(lines[s]) or attempts >= RESCUE_AT
             write_mode("rescue" if strong else "local")
+            write_repo(extract_repo(lines[s]))
             print(blk["id"])  # resume this one; don't claim another
             return
 
@@ -180,6 +199,7 @@ def main():
         f.write("\n".join(lines))
     # builder:strong pins to the strong CLI from the first attempt; else the local builder.
     write_mode("rescue" if is_strong(block[0]) else "local")
+    write_repo(extract_repo(block[0]))
     print(pick["id"])
 
 
