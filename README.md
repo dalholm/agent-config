@@ -51,6 +51,21 @@ Det **bootstrappar** också verktygen configen förutsätter (om de saknas): ins
 Node/npm (via Homebrew), Pi (via `pi.dev/install.sh`) och pi-hermes-memory-extensionen.
 Stäng av med `--no-bootstrap`.
 
+## Avinstallera
+
+```sh
+./uninstall.sh --dry-run              # se vad som skulle tas bort
+./uninstall.sh                        # ta bort repo-kopplingar; frågar om Pi-extensioner
+./uninstall.sh --keep-permissions     # lämna approval/sandbox-inställningar orörda
+./uninstall.sh --keep-pi-extensions   # fråga inte; behåll Pi-extensioner
+./uninstall.sh --remove-pi-extensions # ta även bort Pi-extensioner installerade av install.sh
+```
+
+Avinstallern är konservativ: den tar bort symlänkar/config-rader som pekar på detta
+repo och återställer permissiva agentinställningar till säkrare defaults. Den raderar
+inte repot, Pi-minnet, backupfiler eller externa verktyg som Node/Pi om du inte
+uttryckligen ber den ta bort Pi-extensionerna.
+
 **Superpowers** stödjer flera harness. Hur det installeras skiljer sig — scriptet kör
 det som går att skripta och skriver ut resten:
 
@@ -118,9 +133,11 @@ config — kan inte symlänkas eftersom filerna håller maskin-state som tema/au
 - `hooks/settings-snippet.json` — hook-config att klistra in manuellt vid behov.
 - `install.sh` — symlinkar instruktionsfiler + alla skills, hooken, samt Pi-configen;
   bootstrappar Node/Pi/hermes-extensionen om de saknas och pekar ut Superpowers-installen.
+- `uninstall.sh` — tar bort repo-kopplingar och kan återställa agenternas
+  permission-profiler till säkrare defaults.
 - `pi/` — Pi-harness-tillägg. `hermes-memory-config.json` (renderas vid install),
-  `extensions/loop-guard-mine.ts` (lokal loop-vakt), och `memory/` (persistent minne,
-  skills, sessionssök; `memoryDir` renderas till aktuell repo-path). Se `pi/README.md`.
+  `models.json`, och `memory/` (persistent minne, skills, sessionssök; `memoryDir`
+  renderas till aktuell repo-path). Se `pi/README.md`.
 
 ## Lager av styrka
 

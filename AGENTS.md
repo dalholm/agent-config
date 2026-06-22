@@ -140,7 +140,7 @@ When the user asks for hands-off / autonomous work, T3 runs continuously. To sta
 - **Quality gates stay on:** TDD + review between tasks, always.
 - **Stop conditions:** all plan tasks done, an unresolvable BLOCKED, or a scope change.
 - **Report back:** what was built, what was skipped, what needs your eyes.
-- Keep the loop **plan-bounded** (a finite task list). No open-ended "keep improving"
+- Keep the work **plan-bounded** (a finite task list). No open-ended "keep improving"
   loops.
 
 Two roles make autonomy safe — see their skills for detail:

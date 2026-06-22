@@ -5,14 +5,8 @@ min agent-config:
 
 - `models.json` — lokala providers (LM Studio). Det här är vad som gör att Pi har
   modeller att välja på utan `/login`.
-- `models-routing.json` — handsorterad `task-class → lokal builder-modell` för loopen.
-  Läses av `loop/claim-task.sh` vid claim (taggen `class:` i Auto Tasks.md); `run-loop.sh`
-  kör modellen som hamnar i `.claim-model`. Medvetet **inte** självmodifierande — redigera
-  för hand. Saknad fil/okänd klass → säker default (qwen-35b).
 - [`pi-hermes-memory`](https://pi.dev/packages/pi-hermes-memory) — persistent minne,
   sessionssök och secret-scanning (`hermes-memory-config.json` + `memory/`).
-- `extensions/loop-guard-mine.ts` — lokal loop-vakt som installerats med
-  `pi install ./pi/extensions/loop-guard-mine.ts` av `install.sh`.
 - **Extensions** (installeras av `install.sh`, se `PI_PACKAGES` där). Valda för att
   aktivera AGENTS.md-filosofin utan att duplicera router/controller-flödet:
   - `pi-subagents` — task-delegering med model-tiers (AGENTS.md §5).
@@ -65,7 +59,6 @@ Två mekanismer, en för varje sorts fil:
 |-----|--------|--------|
 | `models.json` | ✅ | Lokala providers (LM Studio) — sanningskälla, symlänkas ut |
 | `hermes-memory-config.json` | ✅ | Config — sanningskälla, som AGENTS.md |
-| `extensions/loop-guard-mine.ts` | ✅ | Lokal Pi-extension för loop-detektion |
 | `memory/USER.md` | ✅ | Min profil, stabil och kurerad |
 | `memory/MEMORY.md` | ✅ | Agentens anteckningar (brusig historik — auto-skrivs var 10:e tur) |
 | `memory/skills/**/SKILL.md` | ✅ | Procedurer agenten sparar |
@@ -83,7 +76,7 @@ Två mekanismer, en för varje sorts fil:
 
 ```sh
 # 1. wira in config-symlänkar OCH installera alla Pi-extensions, idempotent
-#    (hermes-memory + PI_PACKAGES-listan + lokal loop-guard-extension)
+#    (hermes-memory + PI_PACKAGES-listan)
 ../install.sh
 
 # 2. starta LM Studio + servern (port 1234), kör 'pi', välj modell med /model
