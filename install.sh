@@ -153,7 +153,7 @@ say "Obsidian spec vault:"
 # Specs/plans live in the Obsidian vault (AGENTS.md §8). Ensure the folder exists so
 # agents can write into it; AGENTS.md (symlinked above) tells Claude/Gemini/Codex, and
 # pi/memory/USER.md tells Pi.
-SPECS="$HOME/Documents/Obsidian/dalholm/Projekt/Specs"
+SPECS="$HOME/Documents/Obsidian/dalholm/Projects/general/specs"
 run "mkdir -p '$SPECS'"
 say "  ensured: $SPECS"
 say ""

@@ -188,10 +188,15 @@ vault before guessing:
 (absolute: `/Users/dalholm/Documents/Obsidian/dalholm/`)
 
 Written specs and plans are stored in that vault — not scattered across repos. The
-canonical folder for specs and plans is:
+canonical folder for specs and plans is project-specific:
 
-**`~/Documents/Obsidian/dalholm/Projekt/Specs/`**
-(absolute: `/Users/dalholm/Documents/Obsidian/dalholm/Projekt/Specs/`)
+**`~/Documents/Obsidian/dalholm/Projects/{project-slug}/specs/`**
+(absolute: `/Users/dalholm/Documents/Obsidian/dalholm/Projects/{project-slug}/specs/`)
+
+Use the current repository or project directory name as `{project-slug}`. Slug it with
+lowercase letters, numbers, and hyphens. If there is no clear project name, use:
+
+**`~/Documents/Obsidian/dalholm/Projects/general/specs/`**
 
 - When a task produces a spec or a written plan — T2's light spec, or T3's
   brainstorming → spec → writing-plan — **save it there as a Markdown file**. Make it
