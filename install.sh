@@ -36,7 +36,6 @@ done
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STAMP="$(date +%Y%m%d-%H%M%S)"
-EXTRA_SKILLS_ROOT="$HOME/develop/misc/skills/skills"
 
 say()  { printf '%s\n' "$*"; }
 run()  { if [ "$DRY_RUN" = 1 ]; then say "  would: $*"; else eval "$*"; fi; }
@@ -63,7 +62,9 @@ link() {
     say "  ok (already linked): $link"
     return
   fi
-  if [ -e "$link" ] || [ -L "$link" ]; then
+  if [ -L "$link" ]; then
+    run "rm '$link'"
+  elif [ -e "$link" ]; then
     say "  backing up existing: $link -> $link.bak-$STAMP"
     run "mv '$link' '$link.bak-$STAMP'"
   fi
@@ -80,10 +81,6 @@ link_skills_to() {
       skill_dir="$(dirname "$skill_md")"
       name="$(basename "$skill_dir")"
       linkpath="$dest/$name"
-      if [ -L "$linkpath" ] && [ "$(readlink "$linkpath" 2>/dev/null)" != "$skill_dir" ]; then
-        say "  skip collision: $name ($linkpath already points elsewhere)"
-        continue
-      fi
       if [ -e "$linkpath" ] && [ ! -L "$linkpath" ]; then
         say "  skip collision: $name ($linkpath exists)"
         continue
@@ -182,11 +179,11 @@ say "  ensured: $SPECS"
 say ""
 
 say "Claude Code skills:"
-link_skills_to "$HOME/.claude/skills" "$REPO/skills" "$EXTRA_SKILLS_ROOT"
+link_skills_to "$HOME/.claude/skills" "$REPO/skills"
 say ""
 
 say "Codex skills:"
-link_skills_to "$HOME/.codex/skills" "$REPO/skills" "$EXTRA_SKILLS_ROOT"
+link_skills_to "$HOME/.codex/skills" "$REPO/skills"
 say ""
 
 say "Claude Code hook (UserPromptSubmit):"
@@ -225,25 +222,24 @@ link "$REPO/pi/models.json" "$HOME/.pi/agent/models.json"
 render "$REPO/pi/hermes-memory-config.json" "$HOME/.pi/agent/hermes-memory-config.json"
 # Data dir is redirected into the repo via memoryDir in the config — just ensure it exists.
 run "mkdir -p '$REPO/pi/memory/skills' '$REPO/pi/memory/projects-memory'"
-# Register our skills dirs with Pi so the same skills trigger as in Claude Code — most
+# Register our skills dir with Pi so the same skills trigger as in Claude Code — most
 # importantly complexity-router, which decides whether/how much a task goes through
 # Superpowers. Pi loads description-based skills from settings.json "skills"[]; point it
-# at the source dirs (same source Claude uses, no copy). Idempotent, append only if absent.
+# at the repo (same source Claude uses, no copy). Idempotent, append only if absent.
 if have jq; then
   PIS="$HOME/.pi/agent/settings.json"
   run "mkdir -p '$HOME/.pi/agent'"
   if [ "$DRY_RUN" = 1 ]; then
     say "  would: add $REPO/skills to \"skills\"[] in $PIS"
-    [ -d "$EXTRA_SKILLS_ROOT" ] && say "  would: add $EXTRA_SKILLS_ROOT to \"skills\"[] in $PIS"
   else
     [ -f "$PIS" ] || echo '{}' > "$PIS"
-    for skill_root in "$REPO/skills" "$EXTRA_SKILLS_ROOT"; do
-      [ -d "$skill_root" ] || continue
-      tmp="$(mktemp)"
-      jq --arg p "$skill_root" 'if (.skills // [] | index($p)) then . else .skills = ((.skills // []) + [$p]) end' \
-        "$PIS" > "$tmp" && mv "$tmp" "$PIS"
-      say "  pi: registered skills dir in \"skills\"[] ($skill_root)"
-    done
+    tmp="$(mktemp)"
+    jq --arg p "$REPO/skills" --arg old "$HOME/develop/misc/skills/skills" '
+      .skills = ((.skills // []) | map(select(. != $old))) |
+      if (.skills | index($p)) then . else .skills += [$p] end
+    ' \
+      "$PIS" > "$tmp" && mv "$tmp" "$PIS"
+    say "  pi: registered skills dir in \"skills\"[] ($REPO/skills)"
   fi
 fi
 if have pi; then
