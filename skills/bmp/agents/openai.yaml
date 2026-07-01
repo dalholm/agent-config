@@ -1,0 +1,4 @@
+interface:
+  display_name: "Better My Prompt"
+  short_description: "Refine prompts through focused questions"
+  default_prompt: "Use $bmp to improve this prompt before I use it."
