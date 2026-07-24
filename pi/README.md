@@ -1,91 +1,65 @@
-# pi/ — Pi-harness-tillägg
+# Pi configuration
 
-Allt som rör [Pi](https://pi.dev) lever här, versionerat i samma repo som resten av
-min agent-config:
+This directory is the version-controlled source of truth for the Pi coding agent.
+`../install.sh` links the configuration into `~/.pi/agent` while leaving private
+runtime state such as authentication and session history in place.
 
-- `models.json` — lokala providers (LM Studio). Det här är vad som gör att Pi har
-  modeller att välja på utan `/login`.
-- [`pi-hermes-memory`](https://pi.dev/packages/pi-hermes-memory) — persistent minne,
-  sessionssök och secret-scanning (`hermes-memory-config.json` + `memory/`).
-- **Extensions** (installeras av `install.sh`, se `PI_PACKAGES` där). Valda för att
-  aktivera AGENTS.md-filosofin utan att duplicera router/controller-flödet:
-  - `pi-subagents` — task-delegering med model-tiers (AGENTS.md §5).
-  - `pi-lens` — realtids-LSP/linter/formatter (TDD-grinden, §2).
-  - `pi-simplify` — code review för klarhet/underhållbarhet (self-review-grinden).
-  - `pi-lean-ctx` — token-effektiv bash/read/grep-routing; viktigast för lokal körning.
-  - `pi-web-access` — web search + URL/PDF fetch (för `deep-research`).
-  - `pi-mcp-adapter` — MCP-brygga.
-  - `pi-goal` — goal-driven completion (stödjer `goal-watcher`, §4).
-  - `pi-ask-user` — strukturerade frågor (human-gate / `preference-oracle`).
-  - `pi-retry` — retry-hantering; lokala LM Studio-servrar kan timeouta.
-  - `pi-handoff-rebase` — context-komprimering vid handoff (snäv lokal context).
+## Included features
 
-## Modeller (models.json)
+- `extensions/ask-user` — structured multiple-choice questions.
+- `extensions/background-terminals` — managed background commands and terminal UI.
+- `extensions/copy-all` — copy the current conversation.
+- `extensions/file-search` — first-class `fd` and `rg` tools.
+- `extensions/git-info` and `extensions/model-info` — useful status information.
+- `extensions/subagents` — Pi, Claude, and Codex subagent backends.
+- `extensions/summaries` — run summaries.
+- `extensions/ui-customization` — customized status bar.
+- `extensions/workflows` — reusable multi-step workflows.
+- `themes/github-dark-default.json` — the default Pi theme.
+- `skills/` — instructions for the background-terminal and subagent tools.
+- `models.json` — local LM Studio providers and models.
 
-Pi läser lokala/custom-providers från `~/.pi/agent/models.json` (separat från
-subscriptions via `/login`). Min config speglar opencode-providern: LM Studio på
-`http://127.0.0.1:1234/v1`, API-typ `openai-completions`, tre modeller.
+Firecrawl is deliberately not included. Web search can be added later when there is a
+real need and an API key has been configured.
 
-- `apiKey` är "lmstudio" — LM Studio ignorerar värdet men fältet krävs.
-- `compat.supportsDeveloperRole: false` + `supportsReasoningEffort: false` är säkra
-  defaults för lokala OpenAI-kompatibla servrar.
-- **Reasoning är av.** Vill du slå på thinking för Qwen/DeepSeek lokalt: sätt
-  `"reasoning": true` på modellen och oftast `compat.thinkingFormat`
-  (`"qwen-chat-template"` för lokala Qwen). Se
-  [models.md](https://pi.dev/docs/latest/models).
+## Shared instructions and skills
 
-Filen laddas om varje gång du öppnar `/model` — ingen omstart behövs. Starta LM Studio
-och dess server (port 1234), kör `pi`, välj modell med `/model`.
+Pi reads the same `AGENTS.md` as the other coding agents. The installer also registers
+the repository's top-level `skills/` directory in Pi settings, so the complexity
+router and the focused engineering skills remain shared across harnesses.
 
-> Bakgrundsjobben i hermes-memory (review/consolidation) är pekade mot
-> `lmstudio/huihui-deepseek-v4-flash-abliterated-ds4` via `llmModelOverride`, så de
-> kör på den snabba lokala modellen med thinking av.
+Pi-specific extensions and skills stay in this directory. General agent instructions
+stay at the repository root.
 
-## Hur det kopplas
+## Install
 
-Två mekanismer, en för varje sorts fil:
-
-- **Config-filen** ligger på en fast sökväg (`~/.pi/agent/hermes-memory-config.json`)
-  och **renderas** från `pi/hermes-memory-config.json` av `install.sh`. Template-filen
-  använder `__REPO__`, så `memoryDir` och `projectsMemoryDir` pekar på den checkout där
-  du kör installern. Redigera template-filen i repot och kör `../install.sh` igen.
-- **Datan** (MEMORY.md, USER.md, skills/, projects-memory/) styrs av `memoryDir` /
-  `projectsMemoryDir` i configen, som pekar in i `pi/memory/`. Ingen per-fil-symlänk
-  behövs för en katalog extensionen skriver till konstant.
-
-## Vad som versioneras
-
-| Fil | I git? | Varför |
-|-----|--------|--------|
-| `models.json` | ✅ | Lokala providers (LM Studio) — sanningskälla, symlänkas ut |
-| `hermes-memory-config.json` | ✅ | Config — sanningskälla, som AGENTS.md |
-| `memory/USER.md` | ✅ | Min profil, stabil och kurerad |
-| `memory/MEMORY.md` | ✅ | Agentens anteckningar (brusig historik — auto-skrivs var 10:e tur) |
-| `memory/skills/**/SKILL.md` | ✅ | Procedurer agenten sparar |
-| `memory/projects-memory/**` | ✅ | Projekt-scopat minne |
-| `memory/sessions.db` (+ `-wal`/`-shm`) | ❌ gitignoreas | Binär, växande, rå konversationshistorik |
-
-> OBS: två sorters skills möts i Pi. `memory/skills/` är **hermes-memory**s egna
-> (procedurer agenten sparar, i `memoryDir`). Repots `../skills/` (complexity-router,
-> goal-watcher, preference-oracle) registreras dessutom i Pi via `"skills"[]` i
-> `~/.pi/agent/settings.json` — samma katalog Claude använder, ingen kopia — så de
-> triggar i Pi precis som i Claude Code. `complexity-router` är den som avgör om/hur
-> mycket en uppgift går genom Superpowers.
-
-## Installera
+From the repository root:
 
 ```sh
-# 1. wira in config-symlänkar OCH installera alla Pi-extensions, idempotent
-#    (hermes-memory + PI_PACKAGES-listan)
-../install.sh
-
-# 2. starta LM Studio + servern (port 1234), kör 'pi', välj modell med /model
-
-# 3. (engång) indexera tidigare sessioner för sök
-/memory-index-sessions
+./install.sh
 ```
 
-## Om du flyttar repot
+The installer:
 
-`memoryDir`/`projectsMemoryDir` renderas från `__REPO__` när `../install.sh` körs.
-Flyttar du repot, kör installern igen från den nya platsen.
+1. links `AGENTS.md`, `models.json`, `extensions/`, `themes/`, and Pi-specific
+   `skills/` into `~/.pi/agent`;
+2. installs the Node dependencies in this directory;
+3. selects the `github-dark-default` theme;
+4. registers the shared top-level skills;
+5. removes package references from the retired Pi setup without touching unrelated
+   packages, authentication, sessions, or project data.
+
+Use `./install.sh --dry-run` to inspect the changes first.
+
+## Development
+
+```sh
+cd pi
+npm install
+npm test
+npm run check
+npm run format:check
+```
+
+The Pi extension source is maintained as part of this repository. Changes should be
+tested here before the root installer is run.

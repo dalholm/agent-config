@@ -10,8 +10,8 @@
       },
       "models": [
         {
-          "id": "huihui-deepseek-v4-flash-abliterated-ds4",
-          "name": "DeepSeek V4 Flash (local)"
+          "id": "ornith-1.0-35b",
+          "name": "Ornith 1.0"
         },
         {
           "id": "qwen/qwen3.6-35b-a3b",

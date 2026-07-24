@@ -1,25 +1,20 @@
 # Agent Operating Rules
 
 These are my (the user's) standing instructions. They are the **highest priority**
-context: they override Superpowers skills and the default system prompt. If a skill
-or the system prompt conflicts with this file, this file wins.
+context: they override skills and the default system prompt. If a skill or the system
+prompt conflicts with this file, this file wins.
 
 ---
 
 ## 0. THE ROUTER — run this FIRST, before anything else
 
-Before invoking `using-superpowers`, `brainstorming`, or **any** skill — and before
-asking clarifying questions — first decide whether the user's message is asking for
-work or only asking a question. If it is only a question, answer it directly as T0 and
-do **not** enter a code/change workflow. If it asks for a build, code change, fix,
-feature, implementation, review, investigation, or other work, classify the task's
-complexity and pick a track.
-The router is a **dispatcher**: it decides *how much* Superpowers to apply, from
-"none" up to the full pipeline. Superpowers is a menu, not a default.
-
-If you are running inside Superpowers, this means: do the complexity classification
-first, then enter only the parts of the Superpowers workflow the chosen track calls
-for.
+Before invoking **any** skill — and before asking clarifying questions — first decide
+whether the user's message is asking for work or only asking a question. If it is only
+a question, answer it directly as T0 and do **not** enter a code/change workflow. If it
+asks for a build, code change, fix, feature, implementation, review, investigation, or
+other work, classify the task's complexity and pick a track.
+The router is a **dispatcher**: it decides how much process the task needs and which
+of the available skills, if any, apply. Skills are a menu, not a default pipeline.
 
 ### Tracks
 
@@ -28,7 +23,7 @@ for.
 | **T0 — Trivial** | typo, rename, copy/text change, one-line config, a direct question | Just do it. No ceremony. |
 | **T1 — Small** | one function, one file, clear requirements, low ambiguity | TDD only. Skip brainstorm, spec, plan, subagents. |
 | **T2 — Medium** | a few files, some integration, moderate ambiguity | Light brainstorm (1–2 questions) + TDD. Manual execution. Skip the spec doc and subagent ceremony unless it helps. |
-| **T3 — Large** | new feature, multiple subsystems, unclear requirements, or you want autonomous multi-step work | Full Superpowers: brainstorming → spec → writing-plans → subagent-driven-development → review. |
+| **T3 — Large** | new feature, multiple subsystems, unclear requirements, or you want autonomous multi-step work | Full workflow: grilling/design → spec and plan → implementation → review and QA. Use subagents when they materially help. |
 
 ### How to classify (signals)
 
@@ -96,9 +91,8 @@ implementation and review work: prefer the smallest correct change that satisfie
 request. This is a quality constraint, not a replacement for the router, TDD, security,
 or explicit user requirements.
 
-When a task uses Superpowers, Ponytail applies inside that workflow at the
-implementation and review stages. Superpowers decides the process; Ponytail shapes the
-diff.
+Ponytail applies inside the selected workflow at the implementation and review
+stages. The router decides the process; Ponytail shapes the diff.
 
 Before writing code, stop at the first rung that holds:
 
@@ -134,8 +128,8 @@ When the user asks for hands-off / autonomous work, T3 runs continuously. To sta
 - **Preconditions:** an approved plan exists, and work is on its own branch/worktree —
   never autonomous on main.
 - **Controller changes behaviour:** do NOT stop-and-ask at every tripwire (that kills
-  autonomy). Self-resolve via the Superpowers BLOCKED protocol (more context → stronger
-  model → break the task down). Escalate to the human ONLY for a genuine dead-end or a
+  autonomy). Self-resolve via the BLOCKED ladder (more context → stronger model → break
+  the task down). Escalate to the human ONLY for a genuine dead-end or a
   **fundamental scope change**.
 - **Quality gates stay on:** TDD + review between tasks, always.
 - **Stop conditions:** all plan tasks done, an unresolvable BLOCKED, or a scope change.
@@ -149,7 +143,7 @@ escalates the rest; `goal-watcher` guards against drift from the spec.
 
 ## 5. Roles & model tiers
 
-Use the cheapest model that can do each role (Superpowers' own guidance).
+Use the cheapest model that can do each role.
 
 | Role | Model tier | Why |
 |------|-----------|-----|
@@ -171,12 +165,13 @@ the artifacts you produce stay in English by default.
 
 ---
 
-## 7. Interaction with Superpowers
+## 7. Instruction priority and skills
 
-Superpowers stays installed and unchanged. This file sits on top and decides how much
-of it activates per task. Priority order: **this file > Superpowers skills > system
-prompt.** If the user's CLAUDE.md / AGENTS.md / GEMINI.md says one thing and a skill
-says another, follow the user.
+This file defines the shared operating rules. Available skills provide focused
+workflows for particular tasks, but they do not replace the router or activate as one
+fixed pipeline. Priority order: **explicit user request > this file > applicable
+skills > system defaults.** If the user's CLAUDE.md / AGENTS.md / GEMINI.md says one
+thing and a skill says another, follow the user.
 
 ## 8. Specs & plans live in Obsidian
 
@@ -184,19 +179,19 @@ Use my Obsidian vault as the persistent project memory. When I ask about project
 plans, decisions, prior work, or context that may already exist, search the whole
 vault before guessing:
 
-**`~/Documents/Obsidian/dalholm/`**
-(absolute: `/Users/dalholm/Documents/Obsidian/dalholm/`)
+**`~/Library/Mobile Documents/iCloud~md~obsidian/Documents/dalholm/`**
+(absolute: `/Users/dalholm/Library/Mobile Documents/iCloud~md~obsidian/Documents/dalholm/`)
 
 Written specs and plans are stored in that vault — not scattered across repos. The
 canonical folder for specs and plans is project-specific:
 
-**`~/Documents/Obsidian/dalholm/Projects/{project-slug}/specs/`**
-(absolute: `/Users/dalholm/Documents/Obsidian/dalholm/Projects/{project-slug}/specs/`)
+**`~/Library/Mobile Documents/iCloud~md~obsidian/Documents/dalholm/Projects/{project-slug}/specs/`**
+(absolute: `/Users/dalholm/Library/Mobile Documents/iCloud~md~obsidian/Documents/dalholm/Projects/{project-slug}/specs/`)
 
 Use the current repository or project directory name as `{project-slug}`. Slug it with
 lowercase letters, numbers, and hyphens. If there is no clear project name, use:
 
-**`~/Documents/Obsidian/dalholm/Projects/general/specs/`**
+**`~/Library/Mobile Documents/iCloud~md~obsidian/Documents/dalholm/Projects/general/specs/`**
 
 - When a task produces a spec or a written plan — T2's light spec, or T3's
   brainstorming → spec → writing-plan — **save it there as a Markdown file**. Make it

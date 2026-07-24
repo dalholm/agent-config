@@ -1,8 +1,14 @@
 *.bak-*
 .DS_Store
 
-# Pi hermes-memory: SQLite session history is binary, large, and holds raw
-# conversation logs — keep it out of git. The markdown memory/skills are tracked.
+# Retired local Pi memory data may remain after migration. Keep raw session databases
+# out of git.
 pi/memory/sessions.db
 pi/memory/sessions.db-wal
 pi/memory/sessions.db-shm
+
+# Pi extension dependencies and private runtime configuration.
+pi/node_modules/
+pi/extensions/*/node_modules/
+pi/extensions/summaries/config.private.json
+pi/extensions/summaries/config.private.json.*.tmp

@@ -1,13 +1,13 @@
 ---
 name: complexity-router
-description: Use at the very start of ANY build, code, fix, feature, or change request — BEFORE using-superpowers, brainstorming, or any other skill, and before clarifying questions. Classifies task complexity and selects how much process to apply (T0 trivial → T3 full Superpowers), then escalates the track if the task grows mid-flight.
+description: Use at the very start of ANY build, code, fix, feature, or change request — before any other skill and before clarifying questions. Classifies task complexity, selects the appropriate workflow and skills (T0 trivial → T3 full workflow), then escalates the track if the task grows mid-flight.
 ---
 
 # Complexity Router
 
 Decide *how much* process a task needs before applying any of it. This skill is a
-**dispatcher** that sits in front of Superpowers: it picks a track, and only the parts
-of the Superpowers workflow that the track calls for get used.
+**dispatcher**: it picks a track, then invokes only the available workflows and skills
+that the track and task call for.
 
 > Priority: the user's AGENTS.md / CLAUDE.md / GEMINI.md is the source of truth. This
 > skill implements that file's router. If they ever differ, the file wins.
@@ -30,7 +30,7 @@ of the Superpowers workflow that the track calls for get used.
 | **T0 Trivial** | typo, rename, copy change, one-line config, a direct question | Just do it. No ceremony and no code/change workflow for pure questions. |
 | **T1 Small** | one function, one file, clear, low ambiguity | TDD only. Skip brainstorm/spec/plan/subagents. |
 | **T2 Medium** | a few files, some integration, moderate ambiguity | Light brainstorm (1–2 Qs) + TDD, manual execution. |
-| **T3 Large** | new feature, multiple subsystems, unclear, or hands-off autonomous work wanted | Full Superpowers: brainstorming → writing-plans → subagent-driven-development → review. |
+| **T3 Large** | new feature, multiple subsystems, unclear, or hands-off autonomous work wanted | Full workflow: grilling/design → spec and plan → implementation → review and QA. Use subagents when they materially help. |
 
 **Signals:** files touched, ambiguity, bugfix vs. feature, blast radius, reversibility,
 desire for autonomous work.

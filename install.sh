@@ -6,9 +6,8 @@
 # instruction file to it, so the content is identical everywhere and you only ever
 # edit AGENTS.md. Existing files are backed up first.
 #
-# It also bootstraps the tools the config assumes: it installs Pi, Node/npm and the
-# pi-hermes-memory extension if they're missing, and sets up Superpowers per harness
-# (scripted for OpenCode/Pi, printed as slash-command steps for Claude Code/Codex).
+# It also bootstraps the tools the config assumes: it installs Pi and Node/npm if
+# they're missing, then installs the dependencies for the repo-owned Pi extensions.
 #
 # Usage:
 #   ./install.sh             # do it
@@ -90,30 +89,6 @@ link_skills_to() {
   done
 }
 
-# render <template> <dest>
-render() {
-  local template="$1" dest="$2" dir tmp
-  dir="$(dirname "$dest")"
-  run "mkdir -p '$dir'"
-  if [ "$DRY_RUN" = 1 ]; then
-    say "  would: render $template -> $dest with REPO=$REPO"
-    return
-  fi
-  tmp="$(mktemp)"
-  awk -v repo="$REPO" '{ gsub(/__REPO__/, repo); print }' "$template" > "$tmp"
-  if [ -f "$dest" ] && cmp -s "$tmp" "$dest"; then
-    rm -f "$tmp"
-    say "  ok (already rendered): $dest"
-    return
-  fi
-  if [ -e "$dest" ] || [ -L "$dest" ]; then
-    say "  backing up existing: $dest -> $dest.bak-$STAMP"
-    mv "$dest" "$dest.bak-$STAMP"
-  fi
-  mv "$tmp" "$dest"
-  say "  rendered: $dest"
-}
-
 # set_toml_keys <file> <approval_policy> <sandbox_mode>
 set_toml_keys() {
   local file="$1" approval="$2" sandbox="$3" dir tmp
@@ -142,7 +117,7 @@ say ""
 if [ "$BOOTSTRAP" = 1 ]; then
   say "Tools (install if missing):"
 
-  # Node/npm — needed for the pi-hermes-memory npm extension.
+  # Node/npm — needed by the repo-owned Pi extensions.
   if have node && have npm; then
     say "  ok: node/npm present"
   elif have brew; then
@@ -152,13 +127,20 @@ if [ "$BOOTSTRAP" = 1 ]; then
     say "  node/npm missing and Homebrew not found — install Node manually: https://nodejs.org"
   fi
 
-  # Pi — the coding agent itself (separate from the hermes-memory extension below).
-  if have pi; then
-    say "  ok: pi present"
+  # Pi — keep the runtime aligned with the extension API version in pi/package.json.
+  PI_REQUIRED_VERSION="$(node -p "require('$REPO/pi/package.json').dependencies['@earendil-works/pi-coding-agent'].replace(/^[^0-9]*/, '')" 2>/dev/null || true)"
+  PI_CURRENT_VERSION="$(pi --version 2>/dev/null || true)"
+  if [ -n "$PI_REQUIRED_VERSION" ] && [ "$PI_CURRENT_VERSION" = "$PI_REQUIRED_VERSION" ]; then
+    say "  ok: pi $PI_CURRENT_VERSION present"
+  elif have npm && [ -n "$PI_REQUIRED_VERSION" ]; then
+    if [ -n "$PI_CURRENT_VERSION" ]; then
+      say "  pi $PI_CURRENT_VERSION found — updating to $PI_REQUIRED_VERSION"
+    else
+      say "  pi missing — installing $PI_REQUIRED_VERSION"
+    fi
+    run "npm install --global '@earendil-works/pi-coding-agent@$PI_REQUIRED_VERSION'"
   else
-    say "  pi missing — installing via pi.dev"
-    run "curl -fsSL https://pi.dev/install.sh | sh"
-    have pi && say "  pi installed" || say "  pi installed — open a new shell if 'pi' isn't found yet"
+    say "  could not determine/install the required Pi version — install @earendil-works/pi-coding-agent manually"
   fi
   say ""
 fi
@@ -171,9 +153,8 @@ say ""
 
 say "Obsidian spec vault:"
 # Specs/plans live in the Obsidian vault (AGENTS.md §8). Ensure the folder exists so
-# agents can write into it; AGENTS.md (symlinked above) tells Claude/Gemini/Codex, and
-# pi/memory/USER.md tells Pi.
-SPECS="$HOME/Documents/Obsidian/dalholm/Projects/general/specs"
+# agents can write into it; the shared AGENTS.md tells every harness, including Pi.
+SPECS="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/dalholm/Projects/general/specs"
 run "mkdir -p '$SPECS'"
 say "  ensured: $SPECS"
 say ""
@@ -216,115 +197,64 @@ fi
 say ""
 
 say "Pi:"
-# Configs live at fixed paths under ~/.pi/agent. models.json can be symlinked; the
-# hermes config is rendered at install time so memoryDir follows this repo checkout.
+link "$REPO/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"
 link "$REPO/pi/models.json" "$HOME/.pi/agent/models.json"
-render "$REPO/pi/hermes-memory-config.json" "$HOME/.pi/agent/hermes-memory-config.json"
-# Data dir is redirected into the repo via memoryDir in the config — just ensure it exists.
-run "mkdir -p '$REPO/pi/memory/skills' '$REPO/pi/memory/projects-memory'"
+link "$REPO/pi/extensions" "$HOME/.pi/agent/extensions"
+link "$REPO/pi/themes" "$HOME/.pi/agent/themes"
+link "$REPO/pi/skills" "$HOME/.pi/agent/skills"
+
+if [ "$BOOTSTRAP" = 1 ]; then
+  if have npm; then
+    run "npm install --prefix '$REPO/pi'"
+  else
+    say "  npm not found — install dependencies later: npm install --prefix '$REPO/pi'"
+  fi
+elif [ ! -d "$REPO/pi/node_modules" ]; then
+  say "  dependencies missing — run: npm install --prefix '$REPO/pi'"
+fi
+
 # Register our skills dir with Pi so the same skills trigger as in Claude Code — most
-# importantly complexity-router, which decides whether/how much a task goes through
-# Superpowers. Pi loads description-based skills from settings.json "skills"[]; point it
-# at the repo (same source Claude uses, no copy). Idempotent, append only if absent.
+# importantly complexity-router, which selects the workflow for each task. Pi loads
+# description-based skills from settings.json "skills"[]; point it at the repo (same
+# source Claude uses, no copy). Also select the repo-owned theme and remove packages
+# from the retired Pi setup while preserving unrelated user packages.
 if have jq; then
   PIS="$HOME/.pi/agent/settings.json"
   run "mkdir -p '$HOME/.pi/agent'"
   if [ "$DRY_RUN" = 1 ]; then
-    say "  would: add $REPO/skills to \"skills\"[] in $PIS"
+    say "  would: register $REPO/skills, set theme=github-dark-default, and remove retired Pi packages in $PIS"
   else
     [ -f "$PIS" ] || echo '{}' > "$PIS"
     tmp="$(mktemp)"
     jq --arg p "$REPO/skills" --arg old "$HOME/develop/misc/skills/skills" '
       .skills = ((.skills // []) | map(select(. != $old))) |
-      if (.skills | index($p)) then . else .skills += [$p] end
+      (if (.skills | index($p)) then . else .skills += [$p] end) |
+      .theme = "github-dark-default" |
+      if .packages then
+        .packages |= map(select(
+          . != "npm:pi-hermes-memory" and
+          . != "npm:pi-subagents" and
+          . != "npm:pi-lens" and
+          . != "npm:pi-lean-ctx" and
+          . != "npm:pi-web-access" and
+          . != "npm:pi-goal" and
+          . != "npm:pi-ask-user" and
+          . != "npm:pi-simplify" and
+          . != "npm:pi-mcp-adapter" and
+          . != "npm:pi-handoff-rebase" and
+          . != "git:github.com/obra/superpowers"
+        ))
+      else . end
     ' \
       "$PIS" > "$tmp" && mv "$tmp" "$PIS"
-    say "  pi: registered skills dir in \"skills\"[] ($REPO/skills)"
+    say "  pi: registered shared skills, selected theme, and removed retired packages"
   fi
 fi
-if have pi; then
-  if pi list 2>/dev/null | grep -q 'pi-hermes-memory'; then
-    say "  ok (extension already installed)"
-  elif [ "$BOOTSTRAP" = 1 ]; then
-    pi_install "npm:pi-hermes-memory" "pi-hermes-memory"
-  else
-    say "  extension not installed — run: pi install npm:pi-hermes-memory"
-  fi
-else
-  say "  pi not found on PATH — open a new shell, then: pi install npm:pi-hermes-memory"
-fi
-
-# Additional Pi extensions. Quality gates (lens/simplify), model-tiered subagents,
-# research (web-access), MCP bridge, interactive prompts (ask-user/goal), and
-# robustness for local LM Studio runs (lean-ctx/handoff-rebase). See pi/README.md
-# for why each is here. Same idempotent pattern as hermes-memory above.
-PI_PACKAGES="pi-subagents pi-lens pi-lean-ctx pi-web-access pi-goal pi-ask-user pi-simplify pi-mcp-adapter pi-handoff-rebase"
-if have pi; then
-  for pkg in $PI_PACKAGES; do
-    if pi list 2>/dev/null | grep -q "$pkg"; then
-      say "  ok (extension already installed): $pkg"
-    elif [ "$BOOTSTRAP" = 1 ]; then
-      pi_install "npm:$pkg" "$pkg"
-    else
-      say "  extension not installed — run: pi install npm:$pkg"
-    fi
-  done
-else
-  say "  pi not on PATH — open a new shell, then install each: $PI_PACKAGES"
-fi
-say ""
-
-say "Superpowers (cross-harness skills framework):"
-# Superpowers supports many harnesses. OpenCode (a config edit) and Pi (a CLI command)
-# can be scripted; Claude Code and Codex install via in-session slash commands, so for
-# those we just print the steps.
-
-# OpenCode: add the plugin to opencode.jsonc's plugin[] array (idempotent).
-SP_OC="superpowers@git+https://github.com/obra/superpowers.git"
-OCJ="$HOME/.config/opencode/opencode.jsonc"
-if have jq && [ -f "$OCJ" ]; then
-  if grep -q 'obra/superpowers' "$OCJ"; then
-    say "  ok (opencode: superpowers already in plugin[])"
-  elif [ "$DRY_RUN" = 1 ]; then
-    say "  would: add superpowers to plugin[] in $OCJ"
-  elif jq -e . "$OCJ" >/dev/null 2>&1; then
-    tmp="$(mktemp)"
-    jq --arg p "$SP_OC" '.plugin = ((.plugin // []) + [$p])' "$OCJ" > "$tmp" && mv "$tmp" "$OCJ"
-    say "  opencode: added superpowers to plugin[]"
-  else
-    say "  opencode: $OCJ has comments jq can't parse — add \"$SP_OC\" to plugin[] manually"
-  fi
-fi
-
-# Pi: install from git (network op — gated behind bootstrap like the other installs).
-if have pi; then
-  if pi list 2>/dev/null | grep -q 'superpowers'; then
-    say "  ok (pi: superpowers already installed)"
-  elif [ "$BOOTSTRAP" = 1 ]; then
-    pi_install "git:github.com/obra/superpowers" "superpowers"
-  else
-    say "  pi: run 'pi install git:github.com/obra/superpowers'"
-  fi
-else
-  say "  pi: not on PATH yet — later run 'pi install git:github.com/obra/superpowers'"
-fi
-
-# Claude Code + Codex: in-session slash commands — can't be scripted from a shell.
-if grep -q 'superpowers' "$HOME/.claude/plugins/known_marketplaces.json" 2>/dev/null; then
-  say "  ok (claude: superpowers marketplace already added)"
-else
-  say "  claude — run in a Claude Code session:"
-  say "    /plugin marketplace add obra/superpowers-marketplace"
-  say "    /plugin install superpowers@superpowers-marketplace"
-fi
-say "  codex — run in a Codex CLI session: /plugins  (search 'superpowers' -> Install)"
 say ""
 
 say "Ponytail (minimal implementation layer):"
-# Ponytail is kept separate from Superpowers: Superpowers controls process; Ponytail
-# shapes implementation/review. The local AGENTS.md (§3) already provides instruction-level
-# coverage. Install the upstream plugin where lifecycle hooks/commands
-# are useful.
+# The local AGENTS.md (§3) already provides instruction-level coverage. Install the
+# upstream plugin where lifecycle hooks and commands are useful.
 if have pi; then
   if pi list 2>/dev/null | grep -q 'ponytail'; then
     say "  ok (pi: ponytail already installed)"
@@ -336,12 +266,48 @@ if have pi; then
 else
   say "  pi: not on PATH yet — later run 'pi install git:github.com/DietrichGebert/ponytail'"
 fi
-say "  claude — run in a Claude Code session:"
-say "    /plugin marketplace add DietrichGebert/ponytail"
-say "    /plugin install ponytail@ponytail"
-say "  codex — run once, then install from /plugins and trust hooks:"
-say "    codex plugin marketplace add DietrichGebert/ponytail"
-say "    codex"
+
+if have claude; then
+  if claude plugin list 2>/dev/null | grep -q 'ponytail'; then
+    say "  ok (claude: ponytail already installed)"
+  elif [ "$BOOTSTRAP" = 1 ]; then
+    if [ "$DRY_RUN" = 1 ]; then
+      say "  would: claude plugin marketplace add DietrichGebert/ponytail"
+      say "  would: claude plugin install ponytail@ponytail"
+    else
+      claude plugin marketplace add DietrichGebert/ponytail \
+        || say "  ! failed: claude ponytail marketplace (skipped — install manually)"
+      claude plugin install ponytail@ponytail \
+        || say "  ! failed: claude ponytail plugin (skipped — install manually)"
+    fi
+  else
+    say "  claude: run 'claude plugin marketplace add DietrichGebert/ponytail'"
+    say "  claude: run 'claude plugin install ponytail@ponytail'"
+  fi
+else
+  say "  claude: not on PATH yet — later run 'claude plugin marketplace add DietrichGebert/ponytail' and 'claude plugin install ponytail@ponytail'"
+fi
+
+if have codex; then
+  if codex plugin list 2>/dev/null | grep -q 'ponytail'; then
+    say "  ok (codex: ponytail already installed)"
+  elif [ "$BOOTSTRAP" = 1 ]; then
+    if [ "$DRY_RUN" = 1 ]; then
+      say "  would: codex plugin marketplace add DietrichGebert/ponytail"
+      say "  would: codex plugin add ponytail@ponytail"
+    else
+      codex plugin marketplace add DietrichGebert/ponytail \
+        || say "  ! failed: codex ponytail marketplace (skipped — install manually)"
+      codex plugin add ponytail@ponytail \
+        || say "  ! failed: codex ponytail plugin (skipped — install manually)"
+    fi
+  else
+    say "  codex: run 'codex plugin marketplace add DietrichGebert/ponytail'"
+    say "  codex: run 'codex plugin add ponytail@ponytail'"
+  fi
+else
+  say "  codex: not on PATH yet — later run 'codex plugin marketplace add DietrichGebert/ponytail' and 'codex plugin add ponytail@ponytail'"
+fi
 say ""
 
 say "Permissions ($PERMISSION_PROFILE):"
@@ -426,4 +392,4 @@ fi
 say ""
 
 say "Done. Restart your agent so it re-reads global config."
-say "First Pi run: '/memory-index-sessions' to index past sessions for search."
+say "Pi keeps auth, sessions, and other runtime state under ~/.pi/agent."

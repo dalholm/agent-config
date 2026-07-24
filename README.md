@@ -1,16 +1,17 @@
 # agent-config
 
-Mina globala instruktioner för AI-kodningsagenter. Styr **hur mycket** av
-[Superpowers](https://github.com/obra/superpowers) som ska aktiveras per uppgift, så
-att småfix går snabbt och billigt medan stora jobb får full disciplin.
+Mina globala instruktioner och skills för AI-kodningsagenter. Styr hur mycket process
+varje uppgift behöver, så att småfix går snabbt och billigt medan stora jobb får full
+disciplin.
 
 ## Idén
 
 En **router** klassar uppgiftens komplexitet *innan* något körs och väljer spår
-(T0 trivialt → T3 full Superpowers). En **kontrollant** eskalerar spåret om jobbet
-visar sig växa. Ceremonin (brainstorm/spec/plan/subagenter) skalas; kvalitetsgrindarna
-(framför allt TDD) behålls. Allt ligger **ovanpå** Superpowers och vinner via prioritet:
-**mina instruktioner > Superpowers-skills > systemprompt.**
+(T0 trivialt → T3 fullt arbetsflöde). En **kontrollant** eskalerar spåret om jobbet
+visar sig växa. Ceremonin (design/spec/plan/subagenter) skalas; kvalitetsgrindarna
+(framför allt TDD) behålls. Repoets skills är en meny som routern väljer från, inte en
+fast pipeline. Prioriteten är:
+**uttrycklig användarinstruktion > AGENTS.md > relevanta skills > systemstandard.**
 
 För **autonoma (T3) körningar** finns två roller som gör hands-off säkert:
 **preference-oracle** svarar på återkommande lågrisk-frågor åt mig (utifrån
@@ -27,11 +28,11 @@ billigt. Se "Roller & modell-tiers" i `AGENTS.md`.
 | Claude Code | `~/.claude/CLAUDE.md` | symlink → `AGENTS.md` |
 | Gemini CLI | `~/.gemini/GEMINI.md` | symlink → `AGENTS.md` |
 | Codex | `~/.codex/AGENTS.md` | symlink → `AGENTS.md` |
-| Pi | `~/.pi/agent/` | se `pi/` (instruktioner inline i `AGENTS.md` + hermes-memory) |
+| Pi | `~/.pi/agent/AGENTS.md` | symlink → `AGENTS.md` |
 
-Eftersom en symlink behåller sitt eget filnamn får alla tre instruktionsfilerna exakt
-samma innehåll. Du redigerar bara `AGENTS.md`. Pi-specifika tillägg (persistent minne)
-lever i `pi/` — se `pi/README.md`.
+Eftersom en symlink behåller sitt eget filnamn får alla instruktionsfiler samma
+innehåll. Du redigerar bara `AGENTS.md`. Pi-specifika extensions, skills, teman och
+lokala modeller lever i `pi/` — se `pi/README.md`.
 
 ## Installera
 
@@ -44,12 +45,12 @@ lever i `pi/` — se `pi/README.md`.
 
 Scriptet symlinkar instruktionsfilerna, lägger skills i `~/.claude/skills/` och
 `~/.codex/skills/`, fogar in hooken i `~/.claude/settings.json` (kräver `jq`,
-annars skrivs manuell instruktion ut), och renderar Pi memory-configen med den
-aktuella repo-sökvägen. Starta om agenten efteråt.
+annars skrivs manuell instruktion ut), och länkar den repoägda Pi-konfigurationen till
+`~/.pi/agent/`. Starta om agenten efteråt.
 
 Det **bootstrappar** också verktygen configen förutsätter (om de saknas): installerar
-Node/npm (via Homebrew), Pi (via `pi.dev/install.sh`) och pi-hermes-memory-extensionen.
-Stäng av med `--no-bootstrap`.
+Node/npm (via Homebrew), Pi (via `pi.dev/install.sh`) och Node-beroendena för våra
+Pi-extensions. Stäng av med `--no-bootstrap`.
 
 ## Avinstallera
 
@@ -63,33 +64,18 @@ Stäng av med `--no-bootstrap`.
 
 Avinstallern är konservativ: den tar bort symlänkar/config-rader som pekar på detta
 repo och återställer permissiva agentinställningar till säkrare defaults. Den raderar
-inte repot, Pi-minnet, backupfiler eller externa verktyg som Node/Pi om du inte
-uttryckligen ber den ta bort Pi-extensionerna.
+inte repot, Pi-autentisering, sessionshistorik, backupfiler eller externa verktyg som
+Node/Pi om du inte uttryckligen ber den ta bort Pi-paket.
 
-**Superpowers** stödjer flera harness. Hur det installeras skiljer sig — scriptet kör
-det som går att skripta och skriver ut resten:
+Repoet innehåller fokuserade skills för bland annat TDD, implementation, diagnostik,
+prototyper, grillning, domänmodellering, PRD:er, issues, review och QA. Installern
+symlinkar samma skills till Claude Code och Codex; Pi registrerar samma katalog.
 
-| Harness | Hur | Skriptbart? |
-|---------|-----|-------------|
-| OpenCode | läggs i `plugin[]` i `opencode.jsonc` | ✅ scriptet mergar in det |
-| Pi | `pi install git:github.com/obra/superpowers` | ✅ scriptet kör det (kräver Pi) |
-| Claude Code | `/plugin`-slash i en session | ❌ scriptet skriver ut raderna |
-| Codex CLI | `/plugins`-slash i en session | ❌ scriptet skriver ut steget |
+**Ponytail** pressar implementation och review mot minsta korrekta diff. Reglerna
+ligger redan i `AGENTS.md` (§3); installern pekar dessutom ut plugin-install
+(`DietrichGebert/ponytail`) där harnesset stödjer det.
 
-```
-# Claude (i en Claude Code-session):
-/plugin marketplace add obra/superpowers-marketplace
-/plugin install superpowers@superpowers-marketplace
-# Codex (i en Codex CLI-session):
-/plugins   # sök "superpowers" -> Install
-```
-
-**Ponytail** körs som ett separat lager ovanpå/innanför Superpowers: Superpowers väljer
-processen, Ponytail pressar implementation och review mot minsta korrekta diff. Reglerna
-ligger redan i `AGENTS.md` (§3); installern pekar dessutom ut
-plugin-install (`DietrichGebert/ponytail`) där harnesset stödjer det.
-
-Pi har dessutom sitt *eget* skill-system (pi-hermes), skilt från Superpowers — se `pi/`.
+Pi har dessutom sitt eget extension- och minnessystem — se `pi/`.
 
 ### Permissions-profiler
 
@@ -132,12 +118,11 @@ config — kan inte symlänkas eftersom filerna håller maskin-state som tema/au
   injicerar router-direktivet varje tur (bara Claude Code).
 - `hooks/settings-snippet.json` — hook-config att klistra in manuellt vid behov.
 - `install.sh` — symlinkar instruktionsfiler + alla skills, hooken, samt Pi-configen;
-  bootstrappar Node/Pi/hermes-extensionen om de saknas och pekar ut Superpowers-installen.
+  bootstrappar Node/Pi och installerar beroenden för Pi-extensionerna.
 - `uninstall.sh` — tar bort repo-kopplingar och kan återställa agenternas
   permission-profiler till säkrare defaults.
-- `pi/` — Pi-harness-tillägg. `hermes-memory-config.json` (renderas vid install),
-  `models.json`, och `memory/` (persistent minne, skills, sessionssök; `memoryDir`
-  renderas till aktuell repo-path). Se `pi/README.md`.
+- `pi/` — repoägda Pi-extensions, Pi-skills, tema, lokala modeller och Node-beroenden.
+  Se `pi/README.md`.
 
 ## Lager av styrka
 
@@ -151,5 +136,5 @@ Claude-Code-specifikt tillägg.
 ## Brasklapp
 
 Det här är instruktionsföljande, inte en mekanisk spärr. På kapabla modeller håller
-prioritetsregeln bra; svaga lokala modeller följer varken detta eller Superpowers
-disciplin pålitligt. Hooken är det enda riktigt deterministiska lagret.
+prioritetsregeln bra; svaga lokala modeller följer inte alltid processen pålitligt.
+Hooken är det enda riktigt deterministiska lagret.

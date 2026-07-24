@@ -4,7 +4,7 @@
 #
 # Default mode is conservative: remove symlinks/config entries that point at this repo
 # and reset permissive agent settings. It does not uninstall external tools (Node, Pi,
-# Superpowers, Ponytail) or delete repo-owned memory data.
+# Ponytail) or delete repo-owned memory data.
 #
 # Usage:
 #   ./uninstall.sh                         # remove repo wiring
@@ -33,7 +33,7 @@ done
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$REPO/hooks/router-reminder.sh"
-PI_PACKAGES="pi-hermes-memory pi-subagents pi-lens pi-lean-ctx pi-web-access pi-goal pi-ask-user pi-simplify pi-mcp-adapter pi-handoff-rebase superpowers ponytail"
+PI_PACKAGES="ponytail"
 
 say() { printf '%s\n' "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -155,12 +155,15 @@ fi
 say ""
 
 say "Pi config:"
+remove_repo_symlink "$HOME/.pi/agent/AGENTS.md"
 remove_repo_symlink "$HOME/.pi/agent/models.json"
-remove_file_if_repo_owned "$HOME/.pi/agent/hermes-memory-config.json"
+remove_repo_symlink "$HOME/.pi/agent/extensions"
+remove_repo_symlink "$HOME/.pi/agent/themes"
+remove_repo_symlink "$HOME/.pi/agent/skills"
 PI_SETTINGS="$HOME/.pi/agent/settings.json"
 if have jq && [ -f "$PI_SETTINGS" ]; then
   if [ "$DRY_RUN" = 1 ]; then
-    say "  would: remove $REPO/skills from skills[] in $PI_SETTINGS"
+    say "  would: remove $REPO/skills from skills[] and reset the repo theme in $PI_SETTINGS"
   else
     tmp="$(mktemp)"
     jq --arg skills "$REPO/skills" '
@@ -169,37 +172,17 @@ if have jq && [ -f "$PI_SETTINGS" ]; then
         | if (.skills | length) == 0 then del(.skills) else . end
       else
         .
-      end
+      end |
+      if .theme == "github-dark-default" then .theme = "dark" else . end
     ' "$PI_SETTINGS" > "$tmp" && mv "$tmp" "$PI_SETTINGS"
-    say "  removed repo skills dir from: $PI_SETTINGS"
+    say "  removed repo skills dir and reset repo theme in: $PI_SETTINGS"
   fi
-fi
-say ""
-
-say "OpenCode plugin entry:"
-OPENCODE_SETTINGS="$HOME/.config/opencode/opencode.jsonc"
-if have jq && [ -f "$OPENCODE_SETTINGS" ] && jq -e . "$OPENCODE_SETTINGS" >/dev/null 2>&1; then
-  if [ "$DRY_RUN" = 1 ]; then
-    say "  would: remove repo-installed superpowers plugin entry from $OPENCODE_SETTINGS"
-  else
-    tmp="$(mktemp)"
-    jq '
-      if .plugin then
-        .plugin |= map(select(. != "superpowers@git+https://github.com/obra/superpowers.git"))
-        | if (.plugin | length) == 0 then del(.plugin) else . end
-      else
-        .
-      end
-    ' "$OPENCODE_SETTINGS" > "$tmp" && mv "$tmp" "$OPENCODE_SETTINGS"
-    say "  removed superpowers plugin entry from: $OPENCODE_SETTINGS"
-  fi
-else
-  say "  skipped (jq missing, config missing, or JSONC has comments)"
 fi
 say ""
 
 if [ "$KEEP_PERMISSIONS" = 0 ]; then
   say "Permissions reset to safer defaults:"
+  OPENCODE_SETTINGS="$HOME/.config/opencode/opencode.jsonc"
   if have jq && [ -f "$CLAUDE_SETTINGS" ]; then
     if [ "$DRY_RUN" = 1 ]; then
       say "  would: set Claude permissions.defaultMode=default"
@@ -273,7 +256,7 @@ fi
 
 say "Kept:"
 say "  repo data: $REPO"
-say "  Pi memory data under: $REPO/pi/memory"
+say "  Pi auth, sessions, and runtime data under: $HOME/.pi/agent"
 say "  backup files (*.bak-*) created by install.sh"
 say ""
 say "Done. Restart agent sessions so they re-read config."
