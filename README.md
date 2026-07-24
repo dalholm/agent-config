@@ -56,24 +56,18 @@ Pi-extensions. Stäng av med `--no-bootstrap`.
 
 ```sh
 ./uninstall.sh --dry-run              # se vad som skulle tas bort
-./uninstall.sh                        # ta bort repo-kopplingar; frågar om Pi-extensioner
-./uninstall.sh --keep-permissions     # lämna approval/sandbox-inställningar orörda
-./uninstall.sh --keep-pi-extensions   # fråga inte; behåll Pi-extensioner
-./uninstall.sh --remove-pi-extensions # ta även bort Pi-extensioner installerade av install.sh
+./uninstall.sh                    # ta bort repo-kopplingar
+./uninstall.sh --keep-permissions # lämna approval/sandbox-inställningar orörda
 ```
 
 Avinstallern är konservativ: den tar bort symlänkar/config-rader som pekar på detta
 repo och återställer permissiva agentinställningar till säkrare defaults. Den raderar
 inte repot, Pi-autentisering, sessionshistorik, backupfiler eller externa verktyg som
-Node/Pi om du inte uttryckligen ber den ta bort Pi-paket.
+Node/Pi.
 
 Repoet innehåller fokuserade skills för bland annat TDD, implementation, diagnostik,
 prototyper, grillning, domänmodellering, PRD:er, issues, review och QA. Installern
 symlinkar samma skills till Claude Code och Codex; Pi registrerar samma katalog.
-
-**Ponytail** pressar implementation och review mot minsta korrekta diff. Reglerna
-ligger redan i `AGENTS.md` (§3); installern pekar dessutom ut plugin-install
-(`DietrichGebert/ponytail`) där harnesset stödjer det.
 
 Pi har dessutom sitt eget extension- och minnessystem — se `pi/`.
 

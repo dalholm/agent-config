@@ -44,14 +44,6 @@ have() { command -v "$1" >/dev/null 2>&1; }
 # steps in this same run can see them without the user opening a new shell.
 export PATH="$HOME/.local/bin:$PATH"
 
-# pi_install <spec> <label> — install a Pi extension, non-fatal on failure so one bad
-# package (404, network) doesn't abort the whole run under `set -e`.
-pi_install() {
-  if [ "$DRY_RUN" = 1 ]; then say "  would: pi install $1"; return; fi
-  say "  installing extension: pi install $1"
-  pi install "$1" || say "  ! failed: $2 (skipped — check the name / registry)"
-}
-
 # link <target> <linkpath>
 link() {
   local target="$1" link="$2" dir
@@ -152,7 +144,7 @@ link "$REPO/AGENTS.md" "$HOME/.codex/AGENTS.md"
 say ""
 
 say "Obsidian spec vault:"
-# Specs/plans live in the Obsidian vault (AGENTS.md §8). Ensure the folder exists so
+# Specs/plans live in the Obsidian vault (AGENTS.md §7). Ensure the folder exists so
 # agents can write into it; the shared AGENTS.md tells every harness, including Pi.
 SPECS="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/dalholm/Projects/general/specs"
 run "mkdir -p '$SPECS'"
@@ -249,64 +241,6 @@ if have jq; then
       "$PIS" > "$tmp" && mv "$tmp" "$PIS"
     say "  pi: registered shared skills, selected theme, and removed retired packages"
   fi
-fi
-say ""
-
-say "Ponytail (minimal implementation layer):"
-# The local AGENTS.md (§3) already provides instruction-level coverage. Install the
-# upstream plugin where lifecycle hooks and commands are useful.
-if have pi; then
-  if pi list 2>/dev/null | grep -q 'ponytail'; then
-    say "  ok (pi: ponytail already installed)"
-  elif [ "$BOOTSTRAP" = 1 ]; then
-    pi_install "git:github.com/DietrichGebert/ponytail" "ponytail"
-  else
-    say "  pi: run 'pi install git:github.com/DietrichGebert/ponytail'"
-  fi
-else
-  say "  pi: not on PATH yet — later run 'pi install git:github.com/DietrichGebert/ponytail'"
-fi
-
-if have claude; then
-  if claude plugin list 2>/dev/null | grep -q 'ponytail'; then
-    say "  ok (claude: ponytail already installed)"
-  elif [ "$BOOTSTRAP" = 1 ]; then
-    if [ "$DRY_RUN" = 1 ]; then
-      say "  would: claude plugin marketplace add DietrichGebert/ponytail"
-      say "  would: claude plugin install ponytail@ponytail"
-    else
-      claude plugin marketplace add DietrichGebert/ponytail \
-        || say "  ! failed: claude ponytail marketplace (skipped — install manually)"
-      claude plugin install ponytail@ponytail \
-        || say "  ! failed: claude ponytail plugin (skipped — install manually)"
-    fi
-  else
-    say "  claude: run 'claude plugin marketplace add DietrichGebert/ponytail'"
-    say "  claude: run 'claude plugin install ponytail@ponytail'"
-  fi
-else
-  say "  claude: not on PATH yet — later run 'claude plugin marketplace add DietrichGebert/ponytail' and 'claude plugin install ponytail@ponytail'"
-fi
-
-if have codex; then
-  if codex plugin list 2>/dev/null | grep -q 'ponytail'; then
-    say "  ok (codex: ponytail already installed)"
-  elif [ "$BOOTSTRAP" = 1 ]; then
-    if [ "$DRY_RUN" = 1 ]; then
-      say "  would: codex plugin marketplace add DietrichGebert/ponytail"
-      say "  would: codex plugin add ponytail@ponytail"
-    else
-      codex plugin marketplace add DietrichGebert/ponytail \
-        || say "  ! failed: codex ponytail marketplace (skipped — install manually)"
-      codex plugin add ponytail@ponytail \
-        || say "  ! failed: codex ponytail plugin (skipped — install manually)"
-    fi
-  else
-    say "  codex: run 'codex plugin marketplace add DietrichGebert/ponytail'"
-    say "  codex: run 'codex plugin add ponytail@ponytail'"
-  fi
-else
-  say "  codex: not on PATH yet — later run 'codex plugin marketplace add DietrichGebert/ponytail' and 'codex plugin add ponytail@ponytail'"
 fi
 say ""
 

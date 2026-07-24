@@ -18,9 +18,7 @@ that the track and task call for.
    it is only a question, answer directly as T0 and do not enter a code/change flow.
 2. Classify work requests into a track (below).
 3. Announce it in one line: `Router: T1 (small) — TDD only.`
-4. Enter only the workflow parts that track requires. For implementation or review
-   work inside that track, keep Ponytail minimality active: smallest correct diff,
-   standard library/native features first, no unrequested abstractions.
+4. Enter only the workflow parts that track requires.
 5. Keep the **Controller** (escalation) active for the rest of the task.
 
 ## Tracks

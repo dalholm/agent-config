@@ -84,44 +84,7 @@ off the **quality gates**.
 
 ---
 
-## 3. Minimal implementation discipline
-
-After the router picks a track, keep a Ponytail-inspired minimality bias active for
-implementation and review work: prefer the smallest correct change that satisfies the
-request. This is a quality constraint, not a replacement for the router, TDD, security,
-or explicit user requirements.
-
-Ponytail applies inside the selected workflow at the implementation and review
-stages. The router decides the process; Ponytail shapes the diff.
-
-Before writing code, stop at the first rung that holds:
-
-1. Does this need to exist at all? If not, skip it and say why briefly.
-2. Does the standard library already solve it? Use that.
-3. Does the native platform already cover it? Use that.
-4. Does an already-installed dependency solve it? Use it before adding another one.
-5. Can the correct solution be one line? Prefer the one line.
-6. Only then, write the minimum code that works.
-
-Rules:
-
-- Do not add abstractions, factories, interfaces, configuration, or scaffolding unless
-  the request or existing codebase justifies them now.
-- Prefer deletion over addition, boring over clever, and the fewest touched files that
-  keep the change clear.
-- If two small standard-library/native options fit, choose the one that handles edge
-  cases correctly.
-- Mark deliberate simplifications with a short `ponytail:` comment only when future
-  readers might otherwise mistake the shortcut for ignorance. If the shortcut has a
-  known ceiling, name the ceiling and the upgrade path.
-- Never simplify away trust-boundary validation, data-loss prevention, security,
-  accessibility, hardware calibration/tuning, or anything the user explicitly asked for.
-- Non-trivial new logic still needs one runnable check: the smallest test, assertion,
-  demo, or existing verification that would fail if the logic breaks.
-
----
-
-## 4. Autonomous mode (T3 hands-off)
+## 3. Autonomous mode (T3 hands-off)
 
 When the user asks for hands-off / autonomous work, T3 runs continuously. To stay safe:
 
@@ -141,7 +104,7 @@ Two roles make autonomy safe — see their skills for detail:
 `preference-oracle` answers recurring low-stakes questions on the user's behalf and
 escalates the rest; `goal-watcher` guards against drift from the spec.
 
-## 5. Roles & model tiers
+## 4. Roles & model tiers
 
 Use the cheapest model that can do each role.
 
@@ -155,7 +118,7 @@ Use the cheapest model that can do each role.
 Model routing is harness-dependent: Claude Code can set a model per subagent; Codex /
 OpenCode set it in their own config. Treat this table as intent.
 
-## 6. Language: write code and docs in English
+## 5. Language: write code and docs in English
 
 **Always write all code and documentation in English** — identifiers, comments,
 commit messages, code comments, READMEs, specs, and inline docs — unless an existing
@@ -165,7 +128,7 @@ the artifacts you produce stay in English by default.
 
 ---
 
-## 7. Instruction priority and skills
+## 6. Instruction priority and skills
 
 This file defines the shared operating rules. Available skills provide focused
 workflows for particular tasks, but they do not replace the router or activate as one
@@ -173,7 +136,7 @@ fixed pipeline. Priority order: **explicit user request > this file > applicable
 skills > system defaults.** If the user's CLAUDE.md / AGENTS.md / GEMINI.md says one
 thing and a skill says another, follow the user.
 
-## 8. Specs & plans live in Obsidian
+## 7. Specs & plans live in Obsidian
 
 Use my Obsidian vault as the persistent project memory. When I ask about projects,
 plans, decisions, prior work, or context that may already exist, search the whole

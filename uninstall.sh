@@ -3,27 +3,22 @@
 # uninstall.sh — remove the wiring created by install.sh.
 #
 # Default mode is conservative: remove symlinks/config entries that point at this repo
-# and reset permissive agent settings. It does not uninstall external tools (Node, Pi,
-# Ponytail) or delete repo-owned memory data.
+# and reset permissive agent settings. It does not uninstall external tools (Node, Pi)
+# or delete repo-owned memory data.
 #
 # Usage:
 #   ./uninstall.sh                         # remove repo wiring
 #   ./uninstall.sh --dry-run               # show what would happen, change nothing
 #   ./uninstall.sh --keep-permissions      # do not reset approval/sandbox settings
-#   ./uninstall.sh --keep-pi-extensions    # do not ask; keep Pi extensions installed
-#   ./uninstall.sh --remove-pi-extensions  # also remove Pi extensions installed by install.sh
 #
 set -euo pipefail
 
 DRY_RUN=0
 KEEP_PERMISSIONS=0
-REMOVE_PI_EXTENSIONS=""
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
     --keep-permissions) KEEP_PERMISSIONS=1 ;;
-    --keep-pi-extensions) REMOVE_PI_EXTENSIONS=0 ;;
-    --remove-pi-extensions) REMOVE_PI_EXTENSIONS=1 ;;
     *)
       printf 'Unknown argument: %s\n' "$arg" >&2
       exit 2
@@ -33,7 +28,6 @@ done
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$REPO/hooks/router-reminder.sh"
-PI_PACKAGES="ponytail"
 
 say() { printf '%s\n' "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -43,28 +37,6 @@ run() {
   else
     eval "$*"
   fi
-}
-
-ask_yes_no() {
-  local prompt="$1" default="$2" answer suffix
-  if [ "$default" = "yes" ]; then
-    suffix="[Y/n]"
-  else
-    suffix="[y/N]"
-  fi
-  printf '%s %s ' "$prompt" "$suffix" >&2
-  IFS= read -r answer || answer=""
-  case "$answer" in
-    [Yy]|[Yy][Ee][Ss]) return 0 ;;
-    [Nn]|[Nn][Oo]) return 1 ;;
-    "")
-      [ "$default" = "yes" ]
-      ;;
-    *)
-      say "  treating '$answer' as no"
-      return 1
-      ;;
-  esac
 }
 
 remove_repo_symlink() {
@@ -98,18 +70,6 @@ remove_file_if_repo_owned() {
 
 say "Repo: $REPO"
 [ "$DRY_RUN" = 1 ] && say "(dry run — no changes)"
-if [ -z "$REMOVE_PI_EXTENSIONS" ]; then
-  if [ -t 0 ]; then
-    if ask_yes_no "Remove Pi extensions installed by install.sh too?" "no"; then
-      REMOVE_PI_EXTENSIONS=1
-    else
-      REMOVE_PI_EXTENSIONS=0
-    fi
-  else
-    REMOVE_PI_EXTENSIONS=0
-    say "(non-interactive — keeping Pi extensions; pass --remove-pi-extensions to remove them)"
-  fi
-fi
 say ""
 
 say "Instruction symlinks:"
@@ -233,26 +193,6 @@ else
   say "Permissions: kept unchanged (--keep-permissions)"
 fi
 say ""
-
-if [ "$REMOVE_PI_EXTENSIONS" = 1 ]; then
-  say "Pi extensions:"
-  if have pi; then
-    for pkg in $PI_PACKAGES; do
-      if [ "$DRY_RUN" = 1 ]; then
-        say "  would: pi remove $pkg"
-      else
-        pi remove "$pkg" 2>/dev/null || pi uninstall "$pkg" 2>/dev/null || true
-        say "  removed if installed: $pkg"
-      fi
-    done
-  else
-    say "  skipped (pi not on PATH)"
-  fi
-  say ""
-else
-  say "Pi extensions: kept installed"
-  say ""
-fi
 
 say "Kept:"
 say "  repo data: $REPO"
