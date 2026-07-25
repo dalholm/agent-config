@@ -194,6 +194,7 @@ link "$REPO/pi/models.json" "$HOME/.pi/agent/models.json"
 link "$REPO/pi/extensions" "$HOME/.pi/agent/extensions"
 link "$REPO/pi/themes" "$HOME/.pi/agent/themes"
 link "$REPO/pi/skills" "$HOME/.pi/agent/skills"
+link "$REPO/pi/node_modules" "$HOME/.pi/agent/node_modules"
 
 if [ "$BOOTSTRAP" = 1 ]; then
   if have npm; then
