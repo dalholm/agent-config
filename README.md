@@ -16,8 +16,9 @@ fast pipeline. Prioriteten är:
 För **autonoma (T3) körningar** finns två roller som gör hands-off säkert:
 **preference-oracle** svarar på återkommande lågrisk-frågor åt mig (utifrån
 `preferences.md`) och eskalerar resten; **goal-watcher** vakar på att arbetet inte
-driver från specen. Båda kör på stark modell; mekaniska implementer-subagenter kör
-billigt. Se "Roller & modell-tiers" i `AGENTS.md`.
+driver från specen. Agenternas arbetsroll (`coder`, `researcher`, `designer` osv.) och
+kapacitetsnivå (`fast`, `standard`, `deep`) routas separat till modeller för respektive
+harness. Se "Provider-independent agent routing" i `AGENTS.md`.
 
 ## En sanningskälla
 
@@ -28,6 +29,7 @@ billigt. Se "Roller & modell-tiers" i `AGENTS.md`.
 | Claude Code | `~/.claude/CLAUDE.md` | symlink → `AGENTS.md` |
 | Gemini CLI | `~/.gemini/GEMINI.md` | symlink → `AGENTS.md` |
 | Codex | `~/.codex/AGENTS.md` | symlink → `AGENTS.md` |
+| OpenCode | `~/.config/opencode/AGENTS.md` | symlink → `AGENTS.md` |
 | Pi | `~/.pi/agent/AGENTS.md` | symlink → `AGENTS.md` |
 
 Eftersom en symlink behåller sitt eget filnamn får alla instruktionsfiler samma
@@ -46,7 +48,9 @@ lokala modeller lever i `pi/` — se `pi/README.md`.
 Scriptet symlinkar instruktionsfilerna, lägger skills i `~/.claude/skills/` och
 `~/.codex/skills/`, fogar in hooken i `~/.claude/settings.json` (kräver `jq`,
 annars skrivs manuell instruktion ut), och länkar den repoägda Pi-konfigurationen till
-`~/.pi/agent/`. Starta om agenten efteråt.
+`~/.pi/agent/`. Det länkar också `model-routing.json` till
+`~/.config/agent-config/` och installerar kommandot `agent-model-route` i
+`~/.local/bin/`. Starta om agenten efteråt.
 
 Det **bootstrappar** också verktygen configen förutsätter (om de saknas): installerar
 Node/npm (via Homebrew), Pi (via `pi.dev/install.sh`) och Node-beroendena för våra
@@ -100,7 +104,11 @@ config — kan inte symlänkas eftersom filerna håller maskin-state som tema/au
 
 ## Innehåll
 
-- `AGENTS.md` — sanningskälla (router + kontrollant + autonomt läge + roller/modell-tiers).
+- `AGENTS.md` — sanningskälla (router + kontrollant + autonomt läge + agent-routing).
+- `model-routing.json` — provider-oberoende roller, tiers, presets och
+  harness-bindningar.
+- `scripts/resolve-model-route.mjs` — validerar och löser en logisk route till aktivt
+  harness.
 - `CLAUDE.md`, `GEMINI.md` — tunna pekare (`@./AGENTS.md`) för manuell kopiering om du
   inte vill symlinka.
 - `preferences.md` — mina stående preferenser; preference-oracle svarar utifrån denna. Fyll i den.

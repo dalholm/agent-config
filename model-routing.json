@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "defaultRoute": {
+    "role": "generalist",
+    "tier": "standard"
+  },
+  "roles": {
+    "generalist": {
+      "description": "Direct questions and ordinary mixed work."
+    },
+    "researcher": {
+      "description": "Gather, verify, and synthesize sources."
+    },
+    "coder": {
+      "description": "Implement, debug, refactor, and test."
+    },
+    "designer": {
+      "description": "Design products, UX, interfaces, and systems."
+    },
+    "reviewer": {
+      "description": "Independently verify completed work."
+    },
+    "orchestrator": {
+      "description": "Split and coordinate multi-step work."
+    }
+  },
+  "tiers": {
+    "fast": {
+      "description": "Low-risk routine work where latency matters.",
+      "reasoningIntent": "quick"
+    },
+    "standard": {
+      "description": "Normal implementation, research, and coordination.",
+      "reasoningIntent": "thorough"
+    },
+    "deep": {
+      "description": "Difficult, high-risk, architectural, or final-review work.",
+      "reasoningIntent": "maximum"
+    }
+  },
+  "presets": {
+    "fast": {
+      "role": "generalist",
+      "tier": "fast"
+    },
+    "coder": {
+      "role": "coder",
+      "tier": "standard"
+    },
+    "designer": {
+      "role": "designer",
+      "tier": "standard"
+    },
+    "thinker": {
+      "role": "generalist",
+      "tier": "deep"
+    }
+  },
+  "harnesses": {
+    "codex": {
+      "strategy": "explicit",
+      "tiers": {
+        "fast": {
+          "provider": "openai-codex",
+          "model": "gpt-5.6-luna",
+          "reasoning": "low"
+        },
+        "standard": {
+          "provider": "openai-codex",
+          "model": "gpt-5.6-sol",
+          "reasoning": "high"
+        },
+        "deep": {
+          "provider": "openai-codex",
+          "model": "gpt-5.6-sol",
+          "reasoning": "xhigh"
+        }
+      },
+      "roleOverrides": {
+        "designer": {
+          "standard": {
+            "provider": "openai-codex",
+            "model": "gpt-5.6-terra",
+            "reasoning": "high"
+          },
+          "deep": {
+            "provider": "openai-codex",
+            "model": "gpt-5.6-terra",
+            "reasoning": "xhigh"
+          }
+        }
+      }
+    },
+    "claude": {
+      "strategy": "explicit",
+      "tiers": {
+        "fast": {
+          "provider": "anthropic",
+          "model": "haiku",
+          "reasoning": "low"
+        },
+        "standard": {
+          "provider": "anthropic",
+          "model": "sonnet",
+          "reasoning": "high"
+        },
+        "deep": {
+          "provider": "anthropic",
+          "model": "opus",
+          "reasoning": "xhigh"
+        }
+      }
+    },
+    "hermes": {
+      "strategy": "preset",
+      "presetBindings": {
+        "fast": {
+          "profile": "fast",
+          "provider": "openai-codex",
+          "model": "gpt-5.6-luna",
+          "reasoning": "low"
+        },
+        "coder": {
+          "profile": "coder",
+          "provider": "openai-codex",
+          "model": "gpt-5.6-sol",
+          "reasoning": "high"
+        },
+        "designer": {
+          "profile": "designer",
+          "provider": "openai-codex",
+          "model": "gpt-5.6-terra",
+          "reasoning": "high"
+        },
+        "thinker": {
+          "profile": "thinker",
+          "provider": "openai-codex",
+          "model": "gpt-5.6-sol",
+          "reasoning": "xhigh"
+        }
+      }
+    },
+    "gemini": {
+      "strategy": "inherit"
+    },
+    "opencode": {
+      "strategy": "inherit"
+    },
+    "pi": {
+      "strategy": "inherit"
+    }
+  }
+}

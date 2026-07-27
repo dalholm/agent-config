@@ -104,19 +104,105 @@ Two roles make autonomy safe — see their skills for detail:
 `preference-oracle` answers recurring low-stakes questions on the user's behalf and
 escalates the rest; `goal-watcher` guards against drift from the spec.
 
-## 4. Roles & model tiers
+## 4. Provider-independent agent routing
 
-Use the cheapest model that can do each role.
+Route each concrete work step on two independent axes:
 
-| Role | Model tier | Why |
-|------|-----------|-----|
-| **goal-watcher**, **preference-oracle** | strong (e.g. Claude Sonnet/Opus) | Judgment & alignment calls |
-| Architecture, design, final review | strong | Broad reasoning |
-| Integration / multi-file / debugging | standard | Coordination |
-| Mechanical implementer (1–2 files, clear spec) | cheap/fast (Haiku or local) | Most impl is mechanical |
+- **Role** answers: what kind of work is this step doing?
+- **Tier** answers: how difficult, risky, or expensive is this step?
 
-Model routing is harness-dependent: Claude Code can set a model per subagent; Codex /
-OpenCode set it in their own config. Treat this table as intent.
+Do not use a model family or provider as a role. Agent identity and memory are also
+separate from routing: changing role or tier does not imply a new persona or memory
+store.
+
+### Choose the role
+
+| Role | Use for |
+|------|---------|
+| `generalist` | Direct questions and ordinary mixed work |
+| `researcher` | Gathering, verifying, and synthesizing sources |
+| `coder` | Implementation, debugging, refactoring, and tests |
+| `designer` | Product, UX, interface, and system design |
+| `reviewer` | Independent verification of completed work |
+| `orchestrator` | Splitting and coordinating multi-step work |
+
+Choose the role for the **next concrete work step**, not the whole conversation. A
+multi-phase request may move from `researcher` to `designer`, then `coder`, then
+`reviewer`. State the transition when the role changes.
+
+Role selection priority:
+
+1. Explicit user selection.
+2. Workflow or task requirement.
+3. Project override.
+4. Parent-agent assignment.
+5. The role table above.
+6. `generalist` if no specialist role fits.
+
+If neither axis is selected explicitly, use `generalist/standard`.
+
+A parent agent must assign `role` and `tier` explicitly when starting a child. The
+child must not guess its assignment from a vague title.
+
+### Choose the tier
+
+| Tier | Use for |
+|------|---------|
+| `fast` | Low-risk routine work where latency matters |
+| `standard` | Normal implementation, research, and coordination |
+| `deep` | Difficult, high-risk, architectural, or final-review work |
+
+Research is not automatically `deep`: a routine lookup is `researcher/fast`, normal
+source comparison is `researcher/standard`, and difficult or high-stakes synthesis is
+`researcher/deep`.
+
+Start with the cheapest tier that can safely complete the step. Escalate when sources
+conflict, stakes are high, synthesis is difficult, the first result is insufficient,
+or the user explicitly asks for deeper reasoning. `goal-watcher`,
+`preference-oracle`, architecture decisions, security review, and final review
+normally use `deep`. Mechanical implementation with a clear specification normally
+uses `fast`; integration, multi-file work, and debugging normally use `standard`.
+
+### Resolve the harness-specific model
+
+Agents request a logical `role` and `tier`; they do not hardcode a provider model
+unless the user explicitly overrides routing. The canonical registry is installed at
+`~/.config/agent-config/model-routing.json`.
+
+Inspect available roles, tiers, presets, and harnesses:
+
+```sh
+agent-model-route --list
+```
+
+Resolve a route before choosing an explicit child model:
+
+```sh
+agent-model-route --harness codex --role coder --tier standard
+agent-model-route --harness claude --role researcher --tier deep
+agent-model-route --harness hermes --preset designer
+```
+
+The resolver maps the same logical request to the current model and reasoning setting
+for Claude and Codex. Hermes uses `strategy: preset`: its `fast`, `coder`, `designer`,
+and `thinker` names select the corresponding verified Hermes profile while also
+expanding to role and tier. They are compatibility presets, not the underlying domain
+model. Do not invent arbitrary Hermes role/tier mappings: no isolated profile exists
+for combinations such as `researcher/standard`. Harnesses without a safe explicit
+binding use `strategy: inherit`; do not silently route them through a paid provider.
+
+Routing precedence is:
+
+1. Explicit user model or profile selection.
+2. Task capability or independence constraint.
+3. Project override.
+4. Canonical role/tier binding.
+5. Permitted fallback or inherited harness model.
+
+For independent review, prefer a different model family from the author and a
+different provider when one is available. Do not silently downgrade a security or
+final review. Report the requested role/tier, resolved target, and any fallback in the
+result or run metadata.
 
 ## 5. Language: write code and docs in English
 

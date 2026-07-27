@@ -141,6 +141,13 @@ say "Instruction files (all -> AGENTS.md):"
 link "$REPO/AGENTS.md" "$HOME/.claude/CLAUDE.md"
 link "$REPO/AGENTS.md" "$HOME/.gemini/GEMINI.md"
 link "$REPO/AGENTS.md" "$HOME/.codex/AGENTS.md"
+link "$REPO/AGENTS.md" "$HOME/.config/opencode/AGENTS.md"
+say ""
+
+say "Provider-independent model routing:"
+run "chmod +x '$REPO/scripts/resolve-model-route.mjs'"
+link "$REPO/model-routing.json" "$HOME/.config/agent-config/model-routing.json"
+link "$REPO/scripts/resolve-model-route.mjs" "$HOME/.local/bin/agent-model-route"
 say ""
 
 say "Obsidian spec vault:"
@@ -157,6 +164,10 @@ say ""
 
 say "Codex skills:"
 link_skills_to "$HOME/.codex/skills" "$REPO/skills"
+say ""
+
+say "Hermes skills:"
+link_skills_to "$HOME/.hermes/skills" "$REPO/skills"
 say ""
 
 say "Claude Code hook (UserPromptSubmit):"

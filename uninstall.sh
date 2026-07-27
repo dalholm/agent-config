@@ -76,6 +76,12 @@ say "Instruction symlinks:"
 remove_repo_symlink "$HOME/.claude/CLAUDE.md"
 remove_repo_symlink "$HOME/.gemini/GEMINI.md"
 remove_repo_symlink "$HOME/.codex/AGENTS.md"
+remove_repo_symlink "$HOME/.config/opencode/AGENTS.md"
+say ""
+
+say "Provider-independent model routing:"
+remove_repo_symlink "$HOME/.config/agent-config/model-routing.json"
+remove_repo_symlink "$HOME/.local/bin/agent-model-route"
 say ""
 
 say "Skill symlinks:"
@@ -84,6 +90,7 @@ for skill in "$REPO"/skills/*/; do
   name="$(basename "$skill")"
   remove_repo_symlink "$HOME/.claude/skills/$name"
   remove_repo_symlink "$HOME/.codex/skills/$name"
+  remove_repo_symlink "$HOME/.hermes/skills/$name"
 done
 say ""
 
