@@ -1,8 +1,8 @@
 # Agent Operating Rules
 
-These are my (the user's) standing instructions. They are the **highest priority**
-context: they override skills and the default system prompt. If a skill or the system
-prompt conflicts with this file, this file wins.
+These are my (the user's) standing instructions. They are the **highest-priority
+user-owned instructions** and override skills and harness defaults. They operate
+within the harness's system, developer, and safety constraints.
 
 ---
 
@@ -22,7 +22,7 @@ of the available skills, if any, apply. Skills are a menu, not a default pipelin
 |-------|-----------|-------------|
 | **T0 — Trivial** | typo, rename, copy/text change, one-line config, a direct question | Just do it. No ceremony. |
 | **T1 — Small** | one function, one file, clear requirements, low ambiguity | TDD only. Skip brainstorm, spec, plan, subagents. |
-| **T2 — Medium** | a few files, some integration, moderate ambiguity | Light brainstorm (1–2 questions) + TDD. Manual execution. Skip the spec doc and subagent ceremony unless it helps. |
+| **T2 — Medium** | a few files, some integration, moderate ambiguity | Light brainstorm (1–2 questions) + TDD. Manual execution. No written spec is required; if one helps, save it in Obsidian. Skip subagent ceremony unless it helps. |
 | **T3 — Large** | new feature, multiple subsystems, unclear requirements, or you want autonomous multi-step work | Full workflow: grilling/design → spec and plan → implementation → review and QA. Use subagents when they materially help. |
 
 ### How to classify (signals)
@@ -183,6 +183,9 @@ agent-model-route --harness claude --role researcher --tier deep
 agent-model-route --harness hermes --preset designer
 ```
 
+If the installed command is unavailable, read the repository's
+`model-routing.json`; do not invent a binding.
+
 The resolver maps the same logical request to the current model and reasoning setting
 for Claude and Codex. Hermes uses `strategy: preset`: its `fast`, `coder`, `designer`,
 and `thinker` names select the corresponding verified Hermes profile while also
@@ -190,6 +193,11 @@ expanding to role and tier. They are compatibility presets, not the underlying d
 model. Do not invent arbitrary Hermes role/tier mappings: no isolated profile exists
 for combinations such as `researcher/standard`. Harnesses without a safe explicit
 binding use `strategy: inherit`; do not silently route them through a paid provider.
+
+The resolver **enforces** registry validation, supported presets, explicit bindings,
+and safe inheritance. Role selection, tier escalation, child assignment, and
+independent-review separation are **agent policy**: required behavior, but not a
+mechanical guarantee.
 
 Routing precedence is:
 
@@ -201,8 +209,8 @@ Routing precedence is:
 
 For independent review, prefer a different model family from the author and a
 different provider when one is available. Do not silently downgrade a security or
-final review. Report the requested role/tier, resolved target, and any fallback in the
-result or run metadata.
+final review. When an explicit child route or fallback is used, record the requested
+role/tier, resolved target, and fallback in the run metadata or result.
 
 ## 5. Language: write code and docs in English
 
@@ -218,9 +226,15 @@ the artifacts you produce stay in English by default.
 
 This file defines the shared operating rules. Available skills provide focused
 workflows for particular tasks, but they do not replace the router or activate as one
-fixed pipeline. Priority order: **explicit user request > this file > applicable
-skills > system defaults.** If the user's CLAUDE.md / AGENTS.md / GEMINI.md says one
-thing and a skill says another, follow the user.
+fixed pipeline. Within system, developer, and safety constraints, user-controlled
+priority is: **explicit user request > this file > applicable skills > harness
+defaults.** If a skill conflicts with the user's CLAUDE.md / AGENTS.md / GEMINI.md,
+follow the user's instruction file.
+
+Keep this file limited to stable rules that should affect most turns. Put
+task-specific procedures in skills, volatile model facts in registries, and project
+decisions in Obsidian. Before adding permanent text, ask whether it must stay in every
+agent's context; if not, link or load it on demand.
 
 ## 7. Specs & plans live in Obsidian
 
@@ -242,9 +256,10 @@ lowercase letters, numbers, and hyphens. If there is no clear project name, use:
 
 **`~/Library/Mobile Documents/iCloud~md~obsidian/Documents/dalholm/Projects/general/specs/`**
 
-- When a task produces a spec or a written plan — T2's light spec, or T3's
-  brainstorming → spec → writing-plan — **save it there as a Markdown file**. Make it
-  Obsidian-friendly: a clear `# Title` and `[[wikilinks]]` to related notes where useful.
+- T2 does not require a written spec. When any task does produce a spec or written
+  plan — including T3's brainstorming → spec → writing-plan flow — **save it there as
+  a Markdown file**. Make it Obsidian-friendly: a clear `# Title` and `[[wikilinks]]`
+  to related notes where useful.
 - **Before** starting non-trivial work, check that folder for an existing spec on the
   same topic and build on it instead of duplicating.
 - Name files descriptively (`<projekt>-<feature>.md`) and date-stamp inside the doc.
