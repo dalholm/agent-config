@@ -36,6 +36,23 @@
           "name": "Gemma 4 12B IT QAT (local)"
         }
       ]
+    },
+    "ollama": {
+      "baseUrl": "http://192.168.10.177:11434/v1",
+      "api": "openai-completions",
+      "apiKey": "ollama",
+      "compat": {
+        "supportsDeveloperRole": false,
+        "supportsReasoningEffort": false
+      },
+      "models": [
+        {
+          "id": "laguna-s-2.1:latest",
+          "name": "Laguna S 2.1 (Spark)",
+          "contextWindow": 262144,
+          "maxTokens": 32768
+        }
+      ]
     }
   }
 }
