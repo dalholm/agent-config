@@ -12,9 +12,9 @@ import type { Effect, Scope, Stream } from "effect";
 import { Context } from "effect";
 import type {
   BackendName,
+  BoundSpawnTask,
   SendError,
   SpawnError,
-  SpawnTask,
   SubagentEvent,
   SubagentMeta,
 } from "./domain.ts";
@@ -62,7 +62,7 @@ export interface SubagentBackend {
    * semantics (background fibers, result delivery) live in the manager.
    */
   spawn(
-    task: SpawnTask,
+    task: BoundSpawnTask,
   ): Effect.Effect<SubagentSession, SpawnError, Scope.Scope>;
 }
 

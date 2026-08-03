@@ -54,7 +54,14 @@ const parent: ParentContext = {
 };
 
 function task(prompt: string): SpawnTask {
-  return { prompt, title: "test", cwd: process.cwd(), parent };
+  return {
+    prompt,
+    title: "test",
+    cwd: process.cwd(),
+    role: "coder",
+    tier: "standard",
+    parent,
+  };
 }
 
 async function withManager(
@@ -83,6 +90,10 @@ test("stub subagent completes and delivers a final result", async () => {
       runtime,
       manager.spawn("claude", task("Say hello to the tests")),
     );
+    assert.equal(snap.route.role, "coder");
+    assert.equal(snap.route.tier, "standard");
+    assert.equal(snap.route.model, "sonnet");
+    assert.equal(snap.route.reasoningEffort, "high");
     assert.equal(snap.status, "running");
     assert.equal(snap.backend, "claude");
     assert.ok(snap.meta.sessionFilePath);

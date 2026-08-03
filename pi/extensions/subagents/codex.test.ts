@@ -16,6 +16,8 @@ function task(prompt: string): SpawnTask {
     prompt,
     title: "live Codex test",
     cwd: process.cwd(),
+    role: "generalist",
+    tier: "fast",
     parent,
   };
 }

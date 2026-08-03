@@ -1,5 +1,5 @@
 import type { Options as ClaudeQueryOptions } from "@anthropic-ai/claude-agent-sdk";
-import type { ReasoningEffort, SpawnTask } from "./domain.ts";
+import type { BoundSpawnTask, ReasoningEffort } from "./domain.ts";
 import { resolveSubagentProfile } from "./safety-profile.ts";
 
 const CLAUDE_THINKING_BUDGETS = {
@@ -13,7 +13,7 @@ const CLAUDE_THINKING_BUDGETS = {
 } satisfies Record<ReasoningEffort, number>;
 
 export function buildClaudeQueryOptions(
-  task: SpawnTask,
+  task: BoundSpawnTask,
   abortController: AbortController,
   claudeBinary?: string,
 ): ClaudeQueryOptions {
@@ -35,7 +35,7 @@ export function buildClaudeQueryOptions(
   };
 }
 
-export function buildCodexThreadStartParams(task: SpawnTask) {
+export function buildCodexThreadStartParams(task: BoundSpawnTask) {
   return {
     cwd: task.cwd,
     ...resolveSubagentProfile("codex"),

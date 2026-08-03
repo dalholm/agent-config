@@ -22,7 +22,7 @@ export const WORKFLOW_TOOL_DESCRIPTION = [
   "The script runs as an async function body with these primitives:",
   "• export const meta = { name, description, phases: [{ title, detail? }] } — metadata for the progress UI. Declare all phases up front.",
   "• phase(title) — mark the current phase at runtime (use titles from meta.phases).",
-  "• await agent(prompt, { label?, phase?, schema?, model?, provider?, effort? }) — run ONE subagent in an isolated context and wait for it. Always resolves to { ok, output, structured?, error? }. Check `ok` before using the result. When you pass a JSON `schema`, `structured` holds the validated object on success. `model`/`provider` override the session model; `effort` sets the thinking level (off|minimal|low|medium|high|xhigh|max). Children receive normal built-ins and trust-appropriate extensions, settings, skills, and AGENTS.md context, but cannot recursively orchestrate or ask the user.",
+  "• await agent(prompt, { label?, phase?, role, tier, schema?, model?, provider?, effort? }) — run ONE subagent in an isolated context and wait for it. Always resolves to { ok, output, structured?, error? }. Every child requires a logical role (generalist|researcher|coder|designer|reviewer|orchestrator) and tier (fast|standard|deep). Check `ok` before using the result. When you pass a JSON `schema`, `structured` holds the validated object on success. `model`/`provider` and `effort` are explicit overrides; otherwise Pi safely inherits the active model and thinking level. Children receive normal built-ins and trust-appropriate extensions, settings, skills, and AGENTS.md context, but cannot recursively orchestrate or ask the user.",
   "• await parallel([() => agent(...), () => agent(...)], { concurrency? }) — run zero-argument agent thunks concurrently and return results in order. Concurrency is globally capped at 4 for the run.",
   "• args — the parsed value of the `args` tool parameter (or undefined).",
   "Workflow JavaScript runs in a restricted, killable child with no imports, eval, timers, filesystem, network, or process APIs. A run may make at most 32 agent calls and has no overall deadline. Each agent must receive its first assistant response event within 45 seconds so silent provider requests fail clearly; after that, agent() has no wall-clock deadline. Each individual child tool call times out independently after 3 minutes, becomes an error tool result, and leaves the agent loop free to recover. Use map/filter/if/await/template strings to orchestrate, and `return` a JSON-serializable aggregate.",
@@ -31,10 +31,10 @@ export const WORKFLOW_TOOL_DESCRIPTION = [
   "export const meta = { name: 'reliability-review', description: 'Review modules for reliability risks, then report', phases: [{ title: 'Scan' }, { title: 'Report' }] }",
   "const FINDINGS = { type: 'object', properties: { issues: { type: 'array', items: { type: 'string' } }, ok: { type: 'boolean' } }, required: ['issues', 'ok'] }",
   "phase('Scan')",
-  "const scans = await parallel(args.files.map((f) => () => agent(`Review ${f} for correctness and reliability risks.`, { label: `scan:${f}`, phase: 'Scan', schema: FINDINGS })))",
+  "const scans = await parallel(args.files.map((f) => () => agent(`Review ${f} for correctness and reliability risks.`, { label: `scan:${f}`, phase: 'Scan', role: 'reviewer', tier: 'standard', schema: FINDINGS })))",
   "const findings = scans.filter((r) => r.ok).map((r) => r.structured)",
   "phase('Report')",
-  "const report = await agent(`Summarize these findings: ${JSON.stringify(findings)}`, { label: 'report', phase: 'Report' })",
+  "const report = await agent(`Summarize these findings: ${JSON.stringify(findings)}`, { label: 'report', phase: 'Report', role: 'generalist', tier: 'standard' })",
   "return { findings, report: report.ok ? report.output : report.error }",
 ].join("\n");
 
@@ -46,6 +46,7 @@ export const WORKFLOW_PROMPT_SNIPPET =
 export const WORKFLOW_PROMPT_GUIDELINES = [
   "Use workflow when a task needs several subagents with phase dependencies or dynamic fan-out; keep single small delegations in the main session.",
   "In workflow scripts, agent() never throws — always check `.ok` on its result before using `.output`/`.structured`.",
+  "Assign every workflow child an explicit logical role and tier; use model/provider or effort only when an explicit override is required.",
 ];
 
 /** Marks and forwards a workflow script's agent() task as an isolated child-model prompt. */
@@ -85,7 +86,7 @@ export function buildWorkflowResultMessage(
             ? "FAILED"
             : "running";
       lines.push(
-        `- [${agent.label}]${agent.phase ? ` (${agent.phase})` : ""} ${status}` +
+        `- [${agent.label}]${agent.phase ? ` (${agent.phase})` : ""}${agent.route ? ` ${agent.route.role}/${agent.route.tier} via ${agent.route.strategy}` : ""} ${status}` +
           (agent.error ? ` — ${agent.error}` : ""),
       );
     }

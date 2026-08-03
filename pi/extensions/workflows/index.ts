@@ -7,7 +7,7 @@
  *
  *   export const meta = { name, description, phases: [{ title, detail? }] }
  *   phase(title)                                  // mark runtime phase progression
- *   await agent(prompt, { label?, phase?, schema?, model?, provider?, effort? })
+ *   await agent(prompt, { label?, phase?, role, tier, schema?, model?, provider?, effort? })
  *   await parallel([() => agent(...), ...], { concurrency? })
  *   args                                          // parsed JSON args passed with the tool call
  *
@@ -75,20 +75,11 @@ import {
   type WorkflowModel,
 } from "./runner.ts";
 import { runWorkflowSandbox } from "./sandbox.ts";
+import { bindWorkflowAgentRoute } from "./routing.ts";
 import { safeStringify, writeFileAtomic } from "./serialization.ts";
 
 const PREVIEW_LENGTH = 200;
 const EMIT_INTERVAL_MS = 120;
-
-const THINKING_LEVELS = [
-  "off",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "max",
-] as const;
 
 /** What `agent()` resolves to inside the script. */
 interface ScriptAgentResult {
@@ -101,6 +92,8 @@ interface ScriptAgentResult {
 interface AgentCallOptions {
   label?: unknown;
   phase?: unknown;
+  role?: unknown;
+  tier?: unknown;
   schema?: unknown;
   model?: unknown;
   provider?: unknown;
@@ -515,17 +508,20 @@ export default function workflows(pi: ExtensionAPI) {
 
         return controller
           .schedule(async (runSignal) => {
-            // Model/provider resolution: default to the parent session's model.
+            let route;
+            try {
+              route = bindWorkflowAgentRoute(opts);
+            } catch (error) {
+              return fail(
+                `agent "${label}": ${error instanceof Error ? error.message : String(error)}`,
+              );
+            }
+            record.route = route;
+
             let model: WorkflowModel | undefined = ctx.model;
-            if (opts.model !== undefined || opts.provider !== undefined) {
-              const modelOpt =
-                typeof opts.model === "string" ? opts.model : undefined;
-              const providerOpt =
-                typeof opts.provider === "string" ? opts.provider : undefined;
-              if (!modelOpt)
-                return fail(
-                  `agent "${label}": \`provider\` requires \`model\` as well`,
-                );
+            if (route.model !== undefined) {
+              const modelOpt = route.model;
+              const providerOpt = route.provider;
               let resolved: WorkflowModel | undefined;
               if (providerOpt) {
                 resolved = ctx.modelRegistry.find(providerOpt, modelOpt);
@@ -555,17 +551,8 @@ export default function workflows(pi: ExtensionAPI) {
             record.contextWindow = model?.contextWindow;
             emit();
 
-            // Effort → thinking level; default inherits the parent session.
-            let thinkingLevel: ThinkingLevel = pi.getThinkingLevel();
-            if (opts.effort !== undefined) {
-              const effort = String(opts.effort);
-              if (!(THINKING_LEVELS as readonly string[]).includes(effort)) {
-                return fail(
-                  `agent "${label}": invalid effort "${effort}" (use ${THINKING_LEVELS.join("|")})`,
-                );
-              }
-              thinkingLevel = effort as ThinkingLevel;
-            }
+            const thinkingLevel: ThinkingLevel =
+              route.reasoningEffort ?? pi.getThinkingLevel();
 
             const resources = await getResources(opts.schema !== undefined);
             const outcome = await runAgent({

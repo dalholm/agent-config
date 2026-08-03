@@ -16,6 +16,8 @@ function task(prompt: string): SpawnTask {
     prompt,
     title: "live Claude test",
     cwd: process.cwd(),
+    role: "generalist",
+    tier: "fast",
     model: "haiku",
     reasoningEffort: "off",
     parent,

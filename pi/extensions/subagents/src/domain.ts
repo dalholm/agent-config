@@ -9,6 +9,13 @@
 
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { Data } from "effect";
+import {
+  ROUTED_REASONING_EFFORTS,
+  type AgentRole,
+  type AgentTier,
+  type BoundModelRoute,
+  type RoutedReasoningEffort,
+} from "../../shared/model-routing.ts";
 
 export const BACKEND_NAMES = ["pi", "claude", "codex"] as const;
 export type BackendName = (typeof BACKEND_NAMES)[number];
@@ -22,16 +29,8 @@ export type SubagentOrigin = "model" | "btw";
  * translates to its reasoning-effort slugs, claude translates to thinking
  * budgets. Omitted = backend default (pi inherits the parent level).
  */
-export const REASONING_EFFORTS = [
-  "off",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "max",
-] as const;
-export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+export const REASONING_EFFORTS = ROUTED_REASONING_EFFORTS;
+export type ReasoningEffort = RoutedReasoningEffort;
 
 export type SubagentStatus = "running" | "done" | "error";
 
@@ -52,6 +51,8 @@ export interface SpawnTask {
   readonly prompt: string;
   readonly title: string;
   readonly cwd: string;
+  readonly role: AgentRole;
+  readonly tier: AgentTier;
   /**
    * Generic model hint, interpreted per backend:
    * pi: "provider/model-id" or bare model id; claude: model alias;
@@ -61,6 +62,10 @@ export interface SpawnTask {
   /** Shared effort scale; each backend maps it to its native equivalent. */
   readonly reasoningEffort?: ReasoningEffort;
   readonly parent: ParentContext;
+}
+
+export interface BoundSpawnTask extends SpawnTask {
+  readonly route: BoundModelRoute;
 }
 
 export interface SubagentMeta {
@@ -196,6 +201,7 @@ export interface SubagentSnapshot {
   readonly title: string;
   readonly prompt: string;
   readonly cwd: string;
+  readonly route: BoundModelRoute;
   readonly status: SubagentStatus;
   readonly createdAt: number;
   readonly settledAt?: number;

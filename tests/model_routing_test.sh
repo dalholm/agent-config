@@ -3,6 +3,66 @@ set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+node --input-type=module -e '
+import assert from "node:assert/strict";
+import { pathToFileURL } from "node:url";
+
+const repo = process.argv[1];
+const routing = await import(pathToFileURL(`${repo}/scripts/model-routing.mjs`));
+const route = routing.resolveModelRoute(routing.modelRoutingRegistry, {
+  harness: "codex",
+  role: "coder",
+  tier: "standard",
+});
+assert.equal(route.model, "gpt-5.6-sol");
+assert.throws(
+  () => routing.validateModelRoutingRegistry({ schemaVersion: 1 }),
+  /defaultRoute/,
+);
+const malformed = structuredClone(routing.modelRoutingRegistry);
+malformed.harnesses.codex.tiers.fast.reasoning = "limitless";
+assert.throws(
+  () => routing.validateModelRoutingRegistry(malformed),
+  /unsupported reasoning effort "limitless"/,
+);
+const unsafeInherit = structuredClone(routing.modelRoutingRegistry);
+unsafeInherit.harnesses.pi.tiers = {
+  standard: {
+    provider: "paid-provider",
+    model: "paid-model",
+    reasoning: "high",
+  },
+};
+assert.throws(
+  () => routing.validateModelRoutingRegistry(unsafeInherit),
+  /inherit.*must not define explicit bindings/,
+);
+assert.throws(
+  () => routing.resolveModelRoute(unsafeInherit, {
+    harness: "pi",
+    role: "coder",
+    tier: "standard",
+  }),
+  /inherit.*must not define explicit bindings/,
+);
+const unsafePreset = structuredClone(routing.modelRoutingRegistry);
+unsafePreset.harnesses.hermes.tiers = {
+  standard: {
+    provider: "paid-provider",
+    model: "paid-model",
+    reasoning: "high",
+  },
+};
+assert.throws(
+  () => routing.resolveModelRoute(unsafePreset, {
+    harness: "hermes",
+    role: "researcher",
+    tier: "standard",
+  }),
+  /preset.*must not define tier or role bindings/,
+);
+' "$repo"
+
 codex_route="$(
   node "$repo/scripts/resolve-model-route.mjs" \
     --harness codex \

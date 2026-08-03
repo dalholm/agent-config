@@ -13,6 +13,8 @@ const MAX_AGENT_REQUESTS = 32;
 export interface SandboxAgentOptions {
   label?: unknown;
   phase?: unknown;
+  role?: unknown;
+  tier?: unknown;
   schema?: unknown;
   model?: unknown;
   provider?: unknown;
@@ -66,6 +68,8 @@ function sanitizeAgentOptions(value: unknown): SandboxAgentOptions {
   return {
     ...(value.label !== undefined ? { label: value.label } : {}),
     ...(value.phase !== undefined ? { phase: value.phase } : {}),
+    ...(value.role !== undefined ? { role: value.role } : {}),
+    ...(value.tier !== undefined ? { tier: value.tier } : {}),
     ...(value.schema !== undefined ? { schema: value.schema } : {}),
     ...(value.model !== undefined ? { model: value.model } : {}),
     ...(value.provider !== undefined ? { provider: value.provider } : {}),

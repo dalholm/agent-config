@@ -9,6 +9,7 @@ import {
   type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { formatContextUtilization } from "../shared/context-utilization.ts";
+import type { BoundModelRoute } from "../shared/model-routing.ts";
 import { safeStringify } from "./serialization.ts";
 
 export type Theme = ExtensionContext["ui"]["theme"];
@@ -65,6 +66,7 @@ export interface AgentRecord {
   label: string;
   phase?: string;
   state: AgentState;
+  route?: BoundModelRoute;
   model?: string;
   /** Context capacity of the active model used for this agent. */
   contextWindow?: number;

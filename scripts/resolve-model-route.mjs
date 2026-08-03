@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
-import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
-
-const registryUrl = new URL("../model-routing.json", import.meta.url);
+import {
+  modelRoutingRegistry,
+  resolveModelRoute,
+  routingCatalog,
+} from "./model-routing.mjs";
 
 function fail(message) {
   process.stderr.write(`agent-model-route: ${message}\n`);
@@ -37,56 +38,6 @@ function parseArgs(argv) {
   return options;
 }
 
-function routingCatalog(registry) {
-  const keys = (value) => Object.keys(value).sort();
-  return {
-    roles: keys(registry.roles),
-    tiers: keys(registry.tiers),
-    presets: keys(registry.presets),
-    harnesses: keys(registry.harnesses),
-    bindings: registry.harnesses,
-  };
-}
-
-function resolveRoute(registry, options) {
-  if (options.preset && (options.role || options.tier)) {
-    fail("--preset cannot be combined with --role or --tier");
-  }
-
-  const preset = options.preset ? registry.presets[options.preset] : undefined;
-  if (options.preset && !preset) fail(`unknown preset "${options.preset}"`);
-
-  const role = preset?.role ?? options.role ?? registry.defaultRoute.role;
-  const tier = preset?.tier ?? options.tier ?? registry.defaultRoute.tier;
-  const harness = options.harness;
-
-  if (!harness) fail("--harness is required");
-  if (!registry.roles[role]) fail(`unknown role "${role}"`);
-  if (!registry.tiers[tier]) fail(`unknown tier "${tier}"`);
-
-  const harnessConfig = registry.harnesses[harness];
-  if (!harnessConfig) fail(`unknown harness "${harness}"`);
-
-  const target =
-    (options.preset
-      ? harnessConfig.presetBindings?.[options.preset]
-      : undefined) ??
-    harnessConfig.roleOverrides?.[role]?.[tier] ??
-    harnessConfig.tiers?.[tier];
-  if (!target && harnessConfig.strategy !== "inherit") {
-    fail(`harness "${harness}" has no binding for tier "${tier}"`);
-  }
-
-  return {
-    ...(options.preset ? { preset: options.preset } : {}),
-    role,
-    tier,
-    harness,
-    strategy: harnessConfig.strategy,
-    ...(target ?? {}),
-  };
-}
-
 function formatRoute(route, format) {
   if (format === "json") {
     return `${JSON.stringify(route, null, 2)}\n`;
@@ -111,9 +62,8 @@ function formatRoute(route, format) {
 }
 
 const options = parseArgs(process.argv.slice(2));
-const registry = JSON.parse(await readFile(fileURLToPath(registryUrl), "utf8"));
 if (options.list) {
-  const catalog = routingCatalog(registry);
+  const catalog = routingCatalog(modelRoutingRegistry);
   if (options.format === "json") {
     process.stdout.write(`${JSON.stringify(catalog, null, 2)}\n`);
   } else if (!options.format || options.format === "text") {
@@ -134,5 +84,9 @@ if (options.list) {
   process.exit(0);
 }
 
-const route = resolveRoute(registry, options);
-process.stdout.write(formatRoute(route, options.format));
+try {
+  const route = resolveModelRoute(modelRoutingRegistry, options);
+  process.stdout.write(formatRoute(route, options.format));
+} catch (error) {
+  fail(error instanceof Error ? error.message : String(error));
+}

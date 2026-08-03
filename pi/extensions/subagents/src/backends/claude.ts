@@ -25,8 +25,8 @@ import { Effect, Queue, Stream } from "effect";
 import type { SubagentBackend, SubagentSession } from "../backend.ts";
 import type {
   QueuedMessage,
+  BoundSpawnTask,
   RunOutcome,
-  SpawnTask,
   SubagentEvent,
   SubagentMeta,
   TranscriptPart,
@@ -275,7 +275,7 @@ interface NativeQueuedMessage extends QueuedMessage {
 }
 
 const makeClaudeSession = (
-  task: SpawnTask,
+  task: BoundSpawnTask,
 ): Effect.Effect<SubagentSession, SpawnError, Scope.Scope> =>
   Effect.gen(function* () {
     const input = new ClaudeInput();

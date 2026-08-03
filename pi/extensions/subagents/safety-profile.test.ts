@@ -5,6 +5,7 @@ import {
   buildCodexThreadStartParams,
 } from "./src/backend-launch-options.ts";
 import type { ParentContext, SpawnTask } from "./src/domain.ts";
+import { bindSpawnTask } from "./src/spawn-route.ts";
 
 const parent: ParentContext = {
   parentCwd: "/workspace",
@@ -15,6 +16,8 @@ const task: SpawnTask = {
   prompt: "Inspect the project",
   title: "safety profile test",
   cwd: "/workspace",
+  role: "coder",
+  tier: "standard",
   model: "test-model",
   reasoningEffort: "low",
   parent,
@@ -22,11 +25,11 @@ const task: SpawnTask = {
 
 test("backend launch payloads stay non-interactive without escaping the workspace sandbox", () => {
   const claude = buildClaudeQueryOptions(
-    task,
+    bindSpawnTask("claude", task),
     new AbortController(),
     "/usr/bin/claude",
   );
-  const codex = buildCodexThreadStartParams(task);
+  const codex = buildCodexThreadStartParams(bindSpawnTask("codex", task));
 
   assert.equal(claude.permissionMode, "dontAsk");
   assert.equal(claude.allowDangerouslySkipPermissions, false);

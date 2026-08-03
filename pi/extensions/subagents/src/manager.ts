@@ -35,6 +35,7 @@ import type {
   SubagentStatus,
   TranscriptItem,
 } from "./domain.ts";
+import { bindSpawnTask } from "./spawn-route.ts";
 import {
   BackendUnavailableError,
   ConcurrencyLimitError,
@@ -79,6 +80,7 @@ interface MutableSnapshot {
   title: string;
   prompt: string;
   cwd: string;
+  route: SubagentSnapshot["route"];
   status: SubagentStatus;
   createdAt: number;
   settledAt?: number;
@@ -421,6 +423,7 @@ const makeManager = Effect.gen(function* () {
 
   const spawn = (backendName: BackendName, task: SpawnTask) =>
     Effect.gen(function* () {
+      const boundTask = bindSpawnTask(backendName, task);
       // Reserve synchronously (before the first yield inside doSpawn) so
       // parallel tool calls cannot race past the global cap.
       yield* Effect.suspend(
@@ -455,9 +458,10 @@ const makeManager = Effect.gen(function* () {
         }
 
         const scope = yield* Scope.make();
-        const session = yield* Scope.provide(backend.spawn(task), scope).pipe(
-          Effect.onError(() => Scope.close(scope, Exit.void)),
-        );
+        const session = yield* Scope.provide(
+          backend.spawn(boundTask),
+          scope,
+        ).pipe(Effect.onError(() => Scope.close(scope, Exit.void)));
         if (disposed) {
           yield* Scope.close(scope, Exit.void);
           return yield* new SpawnError({
@@ -477,6 +481,7 @@ const makeManager = Effect.gen(function* () {
             title: task.title,
             prompt: task.prompt,
             cwd: task.cwd,
+            route: boundTask.route,
             status: "running",
             createdAt: Date.now(),
             meta,

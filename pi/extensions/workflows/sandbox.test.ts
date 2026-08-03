@@ -103,6 +103,21 @@ test("workflow agent invocations have no per-request wall timer", async () => {
   assert.equal(signalAborted, false);
 });
 
+test("sandbox forwards logical routing inputs to the spawn seam", async () => {
+  let received: unknown;
+  await run(
+    `return await agent("review", { role: "reviewer", tier: "deep" });`,
+    {
+      onAgent: async (_prompt, options) => {
+        received = options;
+        return { ok: true, output: "reviewed" };
+      },
+    },
+  );
+
+  assert.deepEqual(received, { role: "reviewer", tier: "deep" });
+});
+
 test("workflow cancellation aborts a pending agent request", async () => {
   const controller = new AbortController();
   let startedResolve: (() => void) | undefined;

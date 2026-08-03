@@ -28,7 +28,7 @@ import type { Cause, Scope } from "effect";
 import { Effect, Queue, Stream } from "effect";
 import type { SubagentBackend, SubagentSession } from "../backend.ts";
 import type {
-  SpawnTask,
+  BoundSpawnTask,
   SubagentEvent,
   SubagentMeta,
   TranscriptPart,
@@ -260,7 +260,7 @@ function boundedError(error: unknown) {
 }
 
 const makePiSession = (
-  task: SpawnTask,
+  task: BoundSpawnTask,
 ): Effect.Effect<SubagentSession, SpawnError, Scope.Scope> =>
   Effect.gen(function* () {
     const registry = task.parent.modelRegistry;

@@ -16,9 +16,9 @@ import type { Cause, Scope } from "effect";
 import { Effect, Queue, Stream } from "effect";
 import type { SubagentBackend, SubagentSession } from "../backend.ts";
 import type {
+  BoundSpawnTask,
   ReasoningEffort,
   RunOutcome,
-  SpawnTask,
   SubagentEvent,
   SubagentMeta,
   TranscriptPart,
@@ -303,7 +303,7 @@ function toolFailed(item: JsonRecord) {
 // --- The session -------------------------------------------------------------
 
 const makeCodexSession = (
-  task: SpawnTask,
+  task: BoundSpawnTask,
 ): Effect.Effect<SubagentSession, SpawnError, Scope.Scope> =>
   Effect.gen(function* () {
     const binary = resolveCodexBinary();

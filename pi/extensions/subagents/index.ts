@@ -3,8 +3,8 @@
  * (pi, Claude Code, Codex) unified behind a single Effect service interface.
  *
  * Tools (for the parent LLM):
- * - subagent_spawn: fire-and-forget spawn (prompt, title, agent, working_dir,
- *   model, reasoning_effort). Max 4 running at once across all backends.
+ * - subagent_spawn: fire-and-forget spawn (prompt, title, harness, role, tier,
+ *   working_dir, model, reasoning_effort). Max 4 running across all backends.
  * - subagent_wait: block until the listed subagents settle, return results.
  * - subagent_cancel: stop one or more running subagents.
  * - subagent_check: peek at a subagent's status and recent activity.
@@ -40,6 +40,10 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Markdown, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
+import {
+  MODEL_ROUTING_ROLES,
+  MODEL_ROUTING_TIERS,
+} from "../shared/model-routing.ts";
 import { deriveBtwTitle, isModelVisible } from "./src/by-the-way.ts";
 import {
   BACKEND_NAMES,
@@ -92,6 +96,7 @@ interface BtwResultData {
 
 function describeSubagent(snap: SubagentSnapshot) {
   const details = [
+    `${snap.route.role}/${snap.route.tier}`,
     `${snap.backend}: ${snap.meta.modelLabel ?? "?"}`,
     formatContextUtilization(snap.usage),
     formatElapsed(snap),
@@ -280,6 +285,12 @@ export default function (pi: ExtensionAPI) {
       harness: StringEnum(BACKEND_NAMES, {
         description: SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS.harness,
       }),
+      role: StringEnum(MODEL_ROUTING_ROLES, {
+        description: SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS.role,
+      }),
+      tier: StringEnum(MODEL_ROUTING_TIERS, {
+        description: SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS.tier,
+      }),
       working_dir: Type.Optional(
         Type.String({
           description: SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS.workingDir,
@@ -312,6 +323,8 @@ export default function (pi: ExtensionAPI) {
           prompt: params.prompt,
           title,
           cwd,
+          role: params.role,
+          tier: params.tier,
           model: params.model,
           reasoningEffort: params.reasoning_effort,
           parent: {
@@ -339,6 +352,9 @@ export default function (pi: ExtensionAPI) {
               id: snap.id,
               title: snap.title,
               harness,
+              role: snap.route.role,
+              tier: snap.route.tier,
+              strategy: snap.route.strategy,
               modelLabel: snap.meta.modelLabel ?? "?",
               cwd,
             }),
@@ -349,6 +365,9 @@ export default function (pi: ExtensionAPI) {
           title: snap.title,
           cwd,
           harness,
+          role: snap.route.role,
+          tier: snap.route.tier,
+          route: snap.route,
           model: snap.meta.modelLabel,
         },
       };
@@ -691,6 +710,8 @@ export default function (pi: ExtensionAPI) {
           prompt,
           title: deriveBtwTitle(prompt),
           cwd: ctx.cwd,
+          role: "generalist",
+          tier: "fast",
           parent: {
             parentCwd: ctx.cwd,
             projectTrusted: ctx.isProjectTrusted(),

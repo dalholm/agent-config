@@ -21,8 +21,8 @@ import { Duration, Effect, Fiber, Queue, Ref, Stream } from "effect";
 import type { SubagentBackend, SubagentSession } from "../backend.ts";
 import type {
   BackendName,
+  BoundSpawnTask,
   QueuedMessage,
-  SpawnTask,
   SubagentEvent,
   SubagentMeta,
 } from "../domain.ts";
@@ -72,7 +72,7 @@ function chunked(text: string, size: number): string[] {
 
 const makeStubSession = (
   profile: StubProfile,
-  task: SpawnTask,
+  task: BoundSpawnTask,
 ): Effect.Effect<SubagentSession, never, Scope.Scope> =>
   Effect.gen(function* () {
     const sessionId = `stub-${profile.backend}-${++sessionCounter}`;
