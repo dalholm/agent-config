@@ -10,16 +10,17 @@
 # they're missing, then installs the dependencies for the repo-owned Pi extensions.
 #
 # Usage:
-#   ./install.sh             # do it
+#   ./install.sh             # install with the safe permission profile
 #   ./install.sh --dry-run   # show what would happen, change nothing
 #   ./install.sh --no-bootstrap   # symlinks/hook only; never install external tools
-#   ./install.sh --safe-profile   # keep harness permission prompts/sandboxing enabled
+#   ./install.sh --safe-profile   # explicit alias for the safe default
+#   ./install.sh --auto-approve   # explicit elevated profile; requires a healthy doctor
 #
 set -euo pipefail
 
 DRY_RUN=0
 BOOTSTRAP=1
-PERMISSION_PROFILE="auto-approve"
+PERMISSION_PROFILE="safe"
 for arg in "$@"; do
   case "$arg" in
     --dry-run)       DRY_RUN=1 ;;
@@ -39,6 +40,24 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 say()  { printf '%s\n' "$*"; }
 run()  { if [ "$DRY_RUN" = 1 ]; then say "  would: $*"; else eval "$*"; fi; }
 have() { command -v "$1" >/dev/null 2>&1; }
+
+safety_profile_field() {
+  local harness="$1" field="$2" resolved
+  resolved="$(
+    node "$REPO/scripts/agent-safety.mjs" profile \
+      --profile "$PERMISSION_PROFILE" \
+      --harness "$harness" \
+      --format json
+  )"
+  node -e '
+  const profile = JSON.parse(process.argv[1]);
+  const value = profile[process.argv[2]];
+  if (typeof value !== "string" && typeof value !== "boolean") {
+    throw new Error(`missing scalar profile field ${process.argv[2]}`);
+  }
+  process.stdout.write(String(value));
+  ' "$resolved" "$field"
+}
 
 # A freshly-installed pi (and friends) land in ~/.local/bin — put it on PATH so later
 # steps in this same run can see them without the user opening a new shell.
@@ -150,6 +169,12 @@ link "$REPO/model-routing.json" "$HOME/.config/agent-config/model-routing.json"
 link "$REPO/scripts/resolve-model-route.mjs" "$HOME/.local/bin/agent-model-route"
 say ""
 
+say "Safety authority:"
+run "chmod +x '$REPO/scripts/agent-safety.mjs'"
+link "$REPO/safety-policy.json" "$HOME/.config/agent-config/safety-policy.json"
+link "$REPO/scripts/agent-safety.mjs" "$HOME/.local/bin/agent-safety"
+say ""
+
 say "Obsidian spec vault:"
 # Specs/plans live in the Obsidian vault (AGENTS.md §7). Ensure the folder exists so
 # agents can write into it; the shared AGENTS.md tells every harness, including Pi.
@@ -196,6 +221,42 @@ if command -v jq >/dev/null 2>&1; then
 else
   say "  jq not found — add this hook manually to $SETTINGS"
   say "  (see hooks/settings-snippet.json; set command to: $HOOK)"
+fi
+say ""
+
+say "Claude Code catastrophic command guard (PreToolUse):"
+GUARD_HOOK="$REPO/hooks/deny-dangerous.sh"
+run "chmod +x '$GUARD_HOOK'"
+if command -v jq >/dev/null 2>&1; then
+  run "mkdir -p '$HOME/.claude'"
+  if [ "$DRY_RUN" = 1 ]; then
+    say "  would: merge PreToolUse hook $GUARD_HOOK into $SETTINGS (via jq)"
+  else
+    [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
+    if jq -e --arg c "$GUARD_HOOK" '
+        any((.hooks.PreToolUse // [])[]?;
+          .matcher == "Bash" and
+          any((.hooks // [])[]?; .type == "command" and .command == $c)
+        )
+      ' "$SETTINGS" >/dev/null 2>&1; then
+      say "  ok (guard already present): $SETTINGS"
+    else
+      tmp="$(mktemp)"
+      jq --arg c "$GUARD_HOOK" '
+        .hooks //= {} |
+        .hooks.PreToolUse //= [] |
+        .hooks.PreToolUse += [
+          {
+            "matcher": "Bash",
+            "hooks": [ { "type": "command", "command": $c } ]
+          }
+        ]
+      ' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
+      say "  merged guard into: $SETTINGS"
+    fi
+  fi
+else
+  say "  jq not found — add PreToolUse command manually: $GUARD_HOOK"
 fi
 say ""
 
@@ -256,6 +317,24 @@ if have jq; then
 fi
 say ""
 
+if [ "$PERMISSION_PROFILE" = "auto-approve" ]; then
+  say "Auto-approve safety gate:"
+  if [ "$DRY_RUN" = 1 ]; then
+    set +e
+    node "$REPO/scripts/agent-safety.mjs" doctor --profile auto-approve
+    doctor_status=$?
+    set -e
+    if [ "$doctor_status" -ne 0 ]; then
+      say "  dry-run: installation would add the missing controls before the activation gate"
+    fi
+  else
+    node "$REPO/scripts/agent-safety.mjs" doctor \
+      --profile auto-approve \
+      --preflight true
+  fi
+  say ""
+fi
+
 say "Permissions ($PERMISSION_PROFILE):"
 # These configs hold machine state (theme/auth), so they can't be symlinked — we merge
 # the permission keys for the chosen profile. Idempotent and reversible.
@@ -264,11 +343,7 @@ say "Permissions ($PERMISSION_PROFILE):"
 if have jq; then
   CSET="$HOME/.claude/settings.json"
   run "mkdir -p '$HOME/.claude'"
-  if [ "$PERMISSION_PROFILE" = "safe" ]; then
-    CLAUDE_MODE="default"
-  else
-    CLAUDE_MODE="bypassPermissions"
-  fi
+  CLAUDE_MODE="$(safety_profile_field claude permissionMode)"
   if [ "$DRY_RUN" = 1 ]; then
     say "  would: set permissions.defaultMode=$CLAUDE_MODE in $CSET"
   else
@@ -284,13 +359,8 @@ fi
 
 # Codex. These are top-level TOML keys, so they MUST precede any [table] header.
 CXT="$HOME/.codex/config.toml"
-if [ "$PERMISSION_PROFILE" = "safe" ]; then
-  CODEX_APPROVAL="on-request"
-  CODEX_SANDBOX="workspace-write"
-else
-  CODEX_APPROVAL="never"
-  CODEX_SANDBOX="danger-full-access"
-fi
+CODEX_APPROVAL="$(safety_profile_field codex approvalPolicy)"
+CODEX_SANDBOX="$(safety_profile_field codex sandbox)"
 set_toml_keys "$CXT" "$CODEX_APPROVAL" "$CODEX_SANDBOX"
 say "  codex: approval_policy=$CODEX_APPROVAL, sandbox_mode=$CODEX_SANDBOX"
 
@@ -298,11 +368,7 @@ say "  codex: approval_policy=$CODEX_APPROVAL, sandbox_mode=$CODEX_SANDBOX"
 # added later jq can't parse it, so we detect and fall back to a manual hint.
 OCJ="$HOME/.config/opencode/opencode.jsonc"
 if have jq && [ -f "$OCJ" ]; then
-  if [ "$PERMISSION_PROFILE" = "safe" ]; then
-    OPENCODE_PERMISSION="ask"
-  else
-    OPENCODE_PERMISSION="allow"
-  fi
+  OPENCODE_PERMISSION="$(safety_profile_field opencode permission)"
   if [ "$DRY_RUN" = 1 ]; then
     say "  would: set permission.{edit,bash,webfetch}=$OPENCODE_PERMISSION in $OCJ"
   elif jq -e . "$OCJ" >/dev/null 2>&1; then
@@ -321,11 +387,7 @@ fi
 if have jq; then
   PIS="$HOME/.pi/agent/settings.json"
   run "mkdir -p '$HOME/.pi/agent'"
-  if [ "$PERMISSION_PROFILE" = "safe" ]; then
-    PI_TRUST="ask"
-  else
-    PI_TRUST="always"
-  fi
+  PI_TRUST="$(safety_profile_field pi projectTrust)"
   if [ "$DRY_RUN" = 1 ]; then
     say "  would: set defaultProjectTrust=$PI_TRUST in $PIS"
   else
@@ -336,6 +398,12 @@ if have jq; then
   fi
 fi
 say ""
+
+if [ "$PERMISSION_PROFILE" = "auto-approve" ] && [ "$DRY_RUN" = 0 ]; then
+  say "Auto-approve installed-state verification:"
+  node "$REPO/scripts/agent-safety.mjs" doctor --profile auto-approve
+  say ""
+fi
 
 say "Done. Restart your agent so it re-reads global config."
 say "Pi keeps auth, sessions, and other runtime state under ~/.pi/agent."

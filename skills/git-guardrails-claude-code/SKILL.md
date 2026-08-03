@@ -5,7 +5,9 @@ description: Set up Claude Code hooks to block dangerous git commands (push, res
 
 # Setup Git Guardrails
 
-Sets up a PreToolUse hook that intercepts and blocks dangerous git commands before Claude executes them.
+Sets up a PreToolUse hook that classifies guarded git commands and resolves their
+authority through the installed `agent-safety` command before Claude executes them.
+The hook fails closed when the canonical authority is unavailable.
 
 ## What Gets Blocked
 
@@ -15,15 +17,24 @@ Sets up a PreToolUse hook that intercepts and blocks dangerous git commands befo
 - `git branch -D`
 - `git checkout .` / `git restore .`
 
-When blocked, Claude sees a message telling it that it does not have authority to access these commands.
+When blocked, Claude sees the operation class and the decision from the canonical
+safety authority. Because a shell hook cannot authenticate a conversational grant,
+this guard deliberately passes `--authorized false`; the user must perform an
+explicitly approved operation outside the guarded agent session or remove the
+optional guard.
 
 ## Steps
 
-### 1. Ask scope
+### 1. Verify the safety authority
+
+Run `agent-safety doctor`. Stop if the command is unavailable or unhealthy; do not
+install a standalone policy fallback.
+
+### 2. Ask scope
 
 Ask the user: install for **this project only** (`.claude/settings.json`) or **all projects** (`~/.claude/settings.json`)?
 
-### 2. Copy the hook script
+### 3. Copy the hook script
 
 The bundled script is at: [scripts/block-dangerous-git.sh](scripts/block-dangerous-git.sh)
 
@@ -34,7 +45,7 @@ Copy it to the target location based on scope:
 
 Make it executable with `chmod +x`.
 
-### 3. Add hook to settings
+### 4. Add hook to settings
 
 Add to the appropriate settings file:
 
@@ -80,11 +91,11 @@ Add to the appropriate settings file:
 
 If the settings file already exists, merge the hook into existing `hooks.PreToolUse` array — don't overwrite other settings.
 
-### 4. Ask about customization
+### 5. Ask about customization
 
 Ask if user wants to add or remove any patterns from the blocked list. Edit the copied script accordingly.
 
-### 5. Verify
+### 6. Verify
 
 Run a quick test:
 

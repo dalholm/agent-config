@@ -1,0 +1,11 @@
+\brm\s+(?=[^\n;&|]*(?:-[A-Za-z]*[rR][A-Za-z]*|--recursive)(?:\s|$))(?:(?:-[A-Za-z]+|--[A-Za-z][A-Za-z-]*(?:=[^\s]+)?)\s+)+(?:--\s+)?["']?/{1,}(?:\*)?["']?(?:\s|$|[;&|])
+\brm\s+(?=[^\n;&|]*(?:-[A-Za-z]*[rR][A-Za-z]*|--recursive)(?:\s|$))(?:(?:-[A-Za-z]+|--[A-Za-z][A-Za-z-]*(?:=[^\s]+)?)\s+)+(?:--\s+)?["']?(?:~|\$HOME|\$\{HOME\}|/Users|/home)(?:/\*|/)?["']?(?:\s|$|[;&|])
+\brm\s+(?=[^\n;&|]*(?:-[A-Za-z]*[rR][A-Za-z]*|--recursive)(?:\s|$))(?:(?:-[A-Za-z]+|--[A-Za-z][A-Za-z-]*(?:=[^\s]+)?)\s+)+(?:--\s+)?["']?(?:(?:/Users|/home)/[^/\s"';&|]+|/root)(?:/\*)?/?["']?(?:\s|$|[;&|])
+\brm\s+(?=[^\n;&|]*(?:-[A-Za-z]*[rR][A-Za-z]*|--recursive)(?:\s|$))(?:(?:-[A-Za-z]+|--[A-Za-z][A-Za-z-]*(?:=[^\s]+)?)\s+)+(?:--\s+)?["']?/(?:Applications|Library|System|Volumes|bin|boot|dev|etc|lib(?:32|64)?|opt|private|sbin|usr|var)(?:/\*)?/?["']?(?:\s|$|[;&|])
+\bdd\b[^\n]*\bof=/dev/(?:disk|sd|nvme|hd)[^\s]*
+\bmkfs(?:\.[A-Za-z0-9_-]+)?\s+[^\n]*\/dev\/
+\bdiskutil\s+(?:eraseDisk|partitionDisk|zeroDisk|secureErase)\b
+:\s*\(\s*\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;?\s*:
+\bchmod\s+(?:-[A-Za-z]*R[A-Za-z]*\s+)?0?777\s+/(?:\s|$|[;&|])
+\bchown\s+-[A-Za-z]*R[A-Za-z]*\s+[^\s]+\s+/(?:\s|$|[;&|])
+\bfind\s+/\s+[^\n]*-delete(?:\s|$|[;&|])

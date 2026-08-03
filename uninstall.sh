@@ -28,9 +28,27 @@ done
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$REPO/hooks/router-reminder.sh"
+GUARD_HOOK="$REPO/hooks/deny-dangerous.sh"
 
 say() { printf '%s\n' "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
+safety_profile_field() {
+  local harness="$1" field="$2" resolved
+  resolved="$(
+    node "$REPO/scripts/agent-safety.mjs" profile \
+      --profile safe \
+      --harness "$harness" \
+      --format json
+  )"
+  node -e '
+  const profile = JSON.parse(process.argv[1]);
+  const value = profile[process.argv[2]];
+  if (typeof value !== "string" && typeof value !== "boolean") {
+    throw new Error(`missing scalar profile field ${process.argv[2]}`);
+  }
+  process.stdout.write(String(value));
+  ' "$resolved" "$field"
+}
 run() {
   if [ "$DRY_RUN" = 1 ]; then
     say "  would: $*"
@@ -38,6 +56,36 @@ run() {
     eval "$*"
   fi
 }
+
+# Resolve the safe state before removing any enforcement. If the authority cannot be
+# loaded, fail closed and leave the existing installation untouched.
+if [ "$KEEP_PERMISSIONS" = 0 ]; then
+  CLAUDE_MODE="$(safety_profile_field claude permissionMode)"
+  CODEX_APPROVAL="$(safety_profile_field codex approvalPolicy)"
+  CODEX_SANDBOX="$(safety_profile_field codex sandbox)"
+  OPENCODE_PERMISSION="$(safety_profile_field opencode permission)"
+  PI_TRUST="$(safety_profile_field pi projectTrust)"
+  if ! have jq && {
+    [ -f "$HOME/.claude/settings.json" ] ||
+      [ -f "$HOME/.config/opencode/opencode.jsonc" ] ||
+      [ -f "$HOME/.pi/agent/settings.json" ]
+  }; then
+    say "Cannot reset permissive JSON settings without jq; nothing was removed."
+    exit 2
+  fi
+  if have jq; then
+    for settings_file in \
+      "$HOME/.claude/settings.json" \
+      "$HOME/.config/opencode/opencode.jsonc" \
+      "$HOME/.pi/agent/settings.json"; do
+      [ -f "$settings_file" ] || continue
+      if ! jq -e . "$settings_file" >/dev/null 2>&1; then
+        say "Cannot safely reset $settings_file; nothing was removed."
+        exit 2
+      fi
+    done
+  fi
+fi
 
 remove_repo_symlink() {
   local path="$1" target
@@ -84,6 +132,11 @@ remove_repo_symlink "$HOME/.config/agent-config/model-routing.json"
 remove_repo_symlink "$HOME/.local/bin/agent-model-route"
 say ""
 
+say "Safety authority:"
+remove_repo_symlink "$HOME/.config/agent-config/safety-policy.json"
+remove_repo_symlink "$HOME/.local/bin/agent-safety"
+say ""
+
 say "Skill symlinks:"
 for skill in "$REPO"/skills/*/; do
   [ -d "$skill" ] || continue
@@ -99,9 +152,10 @@ CLAUDE_SETTINGS="$HOME/.claude/settings.json"
 if have jq && [ -f "$CLAUDE_SETTINGS" ]; then
   if [ "$DRY_RUN" = 1 ]; then
     say "  would: remove UserPromptSubmit hook command $HOOK from $CLAUDE_SETTINGS"
+    say "  would: remove PreToolUse hook command $GUARD_HOOK from $CLAUDE_SETTINGS"
   else
     tmp="$(mktemp)"
-    jq --arg hook "$HOOK" '
+    jq --arg hook "$HOOK" --arg guard "$GUARD_HOOK" '
       if .hooks.UserPromptSubmit then
         .hooks.UserPromptSubmit |=
           map(
@@ -112,9 +166,20 @@ if have jq && [ -f "$CLAUDE_SETTINGS" ]; then
           | if (.hooks | length) == 0 then del(.hooks) else . end
       else
         .
+      end |
+      if .hooks.PreToolUse then
+        .hooks.PreToolUse |=
+          map(
+            .hooks = ((.hooks // []) | map(select(.command != $guard)))
+          )
+          | .hooks.PreToolUse |= map(select((.hooks // []) | length > 0))
+          | if (.hooks.PreToolUse | length) == 0 then del(.hooks.PreToolUse) else . end
+          | if (.hooks | length) == 0 then del(.hooks) else . end
+      else
+        .
       end
     ' "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
-    say "  removed hook from: $CLAUDE_SETTINGS"
+    say "  removed repo hooks from: $CLAUDE_SETTINGS"
   fi
 else
   say "  skipped (jq or $CLAUDE_SETTINGS missing)"
@@ -127,6 +192,7 @@ remove_repo_symlink "$HOME/.pi/agent/models.json"
 remove_repo_symlink "$HOME/.pi/agent/extensions"
 remove_repo_symlink "$HOME/.pi/agent/themes"
 remove_repo_symlink "$HOME/.pi/agent/skills"
+remove_repo_symlink "$HOME/.pi/agent/node_modules"
 PI_SETTINGS="$HOME/.pi/agent/settings.json"
 if have jq && [ -f "$PI_SETTINGS" ]; then
   if [ "$DRY_RUN" = 1 ]; then
@@ -152,48 +218,52 @@ if [ "$KEEP_PERMISSIONS" = 0 ]; then
   OPENCODE_SETTINGS="$HOME/.config/opencode/opencode.jsonc"
   if have jq && [ -f "$CLAUDE_SETTINGS" ]; then
     if [ "$DRY_RUN" = 1 ]; then
-      say "  would: set Claude permissions.defaultMode=default"
+      say "  would: set Claude permissions.defaultMode=$CLAUDE_MODE"
     else
       tmp="$(mktemp)"
-      jq '.permissions = (.permissions // {}) | .permissions.defaultMode = "default"' \
+      jq --arg mode "$CLAUDE_MODE" \
+        '.permissions = (.permissions // {}) | .permissions.defaultMode = $mode' \
         "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
-      say "  claude: permissions.defaultMode = default"
+      say "  claude: permissions.defaultMode = $CLAUDE_MODE"
     fi
   fi
 
   CODEX_CONFIG="$HOME/.codex/config.toml"
   if [ -f "$CODEX_CONFIG" ]; then
     if [ "$DRY_RUN" = 1 ]; then
-      say "  would: set Codex approval_policy=on-request, sandbox_mode=workspace-write"
+      say "  would: set Codex approval_policy=$CODEX_APPROVAL, sandbox_mode=$CODEX_SANDBOX"
     else
       tmp="$(mktemp)"
       {
-        printf 'approval_policy = "on-request"\nsandbox_mode = "workspace-write"\n\n'
+        printf 'approval_policy = "%s"\nsandbox_mode = "%s"\n\n' \
+          "$CODEX_APPROVAL" "$CODEX_SANDBOX"
         awk '!/^(approval_policy|sandbox_mode)[[:space:]]*=/' "$CODEX_CONFIG"
       } > "$tmp"
       mv "$tmp" "$CODEX_CONFIG"
-      say "  codex: approval_policy=on-request, sandbox_mode=workspace-write"
+      say "  codex: approval_policy=$CODEX_APPROVAL, sandbox_mode=$CODEX_SANDBOX"
     fi
   fi
 
   if have jq && [ -f "$OPENCODE_SETTINGS" ] && jq -e . "$OPENCODE_SETTINGS" >/dev/null 2>&1; then
     if [ "$DRY_RUN" = 1 ]; then
-      say "  would: set OpenCode permission edit/bash/webfetch=ask"
+      say "  would: set OpenCode permission edit/bash/webfetch=$OPENCODE_PERMISSION"
     else
       tmp="$(mktemp)"
-      jq '.permission = ((.permission // {}) + {edit:"ask",bash:"ask",webfetch:"ask"})' \
+      jq --arg permission "$OPENCODE_PERMISSION" \
+        '.permission = ((.permission // {}) + {edit:$permission,bash:$permission,webfetch:$permission})' \
         "$OPENCODE_SETTINGS" > "$tmp" && mv "$tmp" "$OPENCODE_SETTINGS"
-      say "  opencode: permission edit/bash/webfetch = ask"
+      say "  opencode: permission edit/bash/webfetch = $OPENCODE_PERMISSION"
     fi
   fi
 
   if have jq && [ -f "$PI_SETTINGS" ]; then
     if [ "$DRY_RUN" = 1 ]; then
-      say "  would: set Pi defaultProjectTrust=ask"
+      say "  would: set Pi defaultProjectTrust=$PI_TRUST"
     else
       tmp="$(mktemp)"
-      jq '.defaultProjectTrust = "ask"' "$PI_SETTINGS" > "$tmp" && mv "$tmp" "$PI_SETTINGS"
-      say "  pi: defaultProjectTrust = ask"
+      jq --arg trust "$PI_TRUST" '.defaultProjectTrust = $trust' \
+        "$PI_SETTINGS" > "$tmp" && mv "$tmp" "$PI_SETTINGS"
+      say "  pi: defaultProjectTrust = $PI_TRUST"
     fi
   fi
 else

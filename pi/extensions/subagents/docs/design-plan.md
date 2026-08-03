@@ -538,12 +538,12 @@ Recommendation: (a) during development, rename to final names when v2 replaces v
    path enough? Exec would forfeit takeover/steering for that subagent — is a
    `mode: "session" | "exec"` spawn parameter desirable, or backend-internal
    optimization only?
-3. **Permissions/sandboxing for Claude/Codex children.** Subagents are headless, so
-   interactive permission prompts are impossible. Do we run Claude with
-   `bypassPermissions`/`--dangerously-skip-permissions` and Codex with
-   `--full-auto`-style sandbox + never-ask approval policy? Should this be a global
-   extension setting, per-spawn, or hardcoded? (Pi children inherit v1's trust-store
-   logic — keep that as-is?)
+3. **Resolved: permissions/sandboxing for Claude/Codex children.** Subagents are
+   headless, so both adapters consume the canonical `autonomous` profile from the
+   repository safety policy. Claude uses `dontAsk`; Codex uses never-ask inside the
+   `workspace-write` sandbox. Spawning a child never grants full-machine access, and
+   model routing cannot alter the profile. Pi children inherit the parent session's
+   trust-store enforcement.
 4. **Concurrency cap scope.** Keep one global `MAX_RUNNING = 4`, or per-backend caps
    (e.g. 4 pi + 2 claude + 2 codex)? Global is proposed as default.
 5. **Steering support parity in real backends.** Codex steering means

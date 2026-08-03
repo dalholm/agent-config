@@ -84,12 +84,40 @@ off the **quality gates**.
 
 ---
 
+## 2a. One authority for safety and autonomy
+
+`safety-policy.json` is the sole machine-readable authority for safety and autonomy.
+Harness permissions, subagent launchers, hooks, workflow checks, instructions, and
+skills consume that policy; none of them may independently expand authority.
+
+The policy returns one of three decisions for an operation class:
+
+- `allow`: the current authority is sufficient.
+- `require-user`: proceed only with an exact user grant recorded in the request or the
+  approved plan. A preference, model choice, oracle decision, or child spawn is not a
+  grant.
+- `deny`: do not proceed. A user grant does not override this decision.
+
+Model provider, role, tier, reasoning effort, and execution mode never grant additional
+authority. The `preference-oracle` may resolve documented, reversible preferences and
+validate acceptance criteria; it may not authorize an operation classified as
+`require-user` or `deny`.
+
+Use `agent-safety decide` when an operation's authority is in question. Headless
+autonomy must use a policy-defined execution profile. An elevated or unrestricted
+profile may start only when `agent-safety doctor` reports its required enforcement
+healthy. A hook is an accident backstop, not the policy and not a sandbox.
+
+---
+
 ## 3. Autonomous mode (T3 hands-off)
 
 When the user asks for hands-off / autonomous work, T3 runs continuously. To stay safe:
 
-- **Preconditions:** an approved plan exists, and work is on its own branch/worktree —
-  never autonomous on main.
+- **Preconditions:** an approved plan exists, work is on its own branch/worktree, the
+  plan records any gated operation grants, and the selected execution profile passes
+  its `agent-safety doctor` scope (`repository` for workspace-sandboxed autonomy,
+  `installed-profile` for elevated execution) — never autonomous on main.
 - **Controller changes behaviour:** do NOT stop-and-ask at every tripwire (that kills
   autonomy). Self-resolve via the BLOCKED ladder (more context → stronger model → break
   the task down). Escalate to the human ONLY for a genuine dead-end or a
@@ -100,9 +128,10 @@ When the user asks for hands-off / autonomous work, T3 runs continuously. To sta
 - Keep the work **plan-bounded** (a finite task list). No open-ended "keep improving"
   loops.
 
-Two roles make autonomy safe — see their skills for detail:
-`preference-oracle` answers recurring low-stakes questions on the user's behalf and
-escalates the rest; `goal-watcher` guards against drift from the spec.
+Two roles support bounded autonomy — see their skills for detail:
+`preference-oracle` answers recurring low-stakes preference questions and validates
+acceptance criteria without granting safety authority; `goal-watcher` guards against
+drift from the spec.
 
 ## 4. Provider-independent agent routing
 

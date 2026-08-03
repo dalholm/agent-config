@@ -3,7 +3,9 @@
 The `preference-oracle` answers recurring, low-stakes questions on my behalf using this
 file. Keep it current — the oracle is only as good as what's written here. Anything not
 covered here, or anything high-stakes, gets escalated to me (see the escalation rules at
-the bottom). Write entries in any language; be specific.
+the bottom). `safety-policy.json` is the separate and higher authority for whether an
+operation is allowed, user-gated, or denied; this file cannot grant or expand operational
+authority. Write entries in any language; be specific.
 
 ## Tech defaults
 <!-- Standing technical choices the oracle may apply without asking. -->
@@ -47,6 +49,8 @@ the bottom). Write entries in any language; be specific.
 - Mechanical/config questions with an obvious or stated-here answer.
 - Naming, file placement, convention choices covered above.
 - Low-stakes, easily reversible defaults.
+- Acceptance-criteria sign-off when the governing spec is unchanged and all required
+  checks are green. Sign-off never grants operational authority.
 
 ## Escalate to me (never answer for me) — ALWAYS
 - Anything irreversible or hard to undo (data deletion, schema/migration, releases, money).
@@ -54,6 +58,8 @@ the bottom). Write entries in any language; be specific.
 - Scope changes or new requirements not in the spec.
 - Genuine ambiguity where two reasonable people would choose differently.
 - Anything not covered by this file where guessing has real cost.
+- Any operation that `agent-safety decide` classifies as `require-user`. The oracle may
+  state its recommendation but cannot satisfy the user grant.
 
 When escalating, batch questions where possible and state the oracle's best guess so I
 can just confirm or correct.

@@ -25,7 +25,6 @@ import { Effect, Queue, Stream } from "effect";
 import type { SubagentBackend, SubagentSession } from "../backend.ts";
 import type {
   QueuedMessage,
-  ReasoningEffort,
   RunOutcome,
   SpawnTask,
   SubagentEvent,
@@ -33,6 +32,7 @@ import type {
   TranscriptPart,
 } from "../domain.ts";
 import { SendError, SpawnError } from "../domain.ts";
+import { buildClaudeQueryOptions } from "../backend-launch-options.ts";
 
 const CLAUDE_CONTEXT_WINDOW = 200_000;
 const INTERRUPT_TIMEOUT_MS = 2_000;
@@ -143,16 +143,6 @@ class ClaudeInput implements AsyncIterable<SDKUserMessage> {
  * disables extended thinking in SDK 0.3.207; an omitted effort leaves the CLI
  * default untouched.
  */
-const THINKING_BUDGETS = {
-  off: 0,
-  minimal: 1_024,
-  low: 4_096,
-  medium: 10_000,
-  high: 16_000,
-  xhigh: 32_000,
-  max: 63_999,
-} satisfies Record<ReasoningEffort, number>;
-
 function boundedError(error: unknown) {
   return (error instanceof Error ? error.message : String(error)).slice(
     0,
@@ -317,39 +307,12 @@ const makeClaudeSession = (
       } satisfies SubagentMeta as SubagentMeta,
     };
 
-    const thinkingBudget = task.reasoningEffort
-      ? THINKING_BUDGETS[task.reasoningEffort]
-      : undefined;
     const claudeBinary = resolveClaudeBinary();
     const nativeQuery = yield* Effect.try({
       try: () =>
         query({
           prompt: input,
-          options: {
-            cwd: task.cwd,
-            // Headless children cannot answer approval prompts. The caller
-            // already chose to launch an autonomous subagent, so let it use
-            // its tools without interactive permission checks.
-            permissionMode: "bypassPermissions",
-            allowDangerouslySkipPermissions: true,
-            // Keep child orchestration inside this extension's global manager
-            // and concurrency cap rather than Claude Code's native subagents.
-            disallowedTools: ["Agent", "Task"],
-            // For cwds pi marked untrusted, restrict to user-level settings so
-            // an untrusted project's config cannot reconfigure the child.
-            ...(task.parent.projectTrusted
-              ? {}
-              : { settingSources: ["user" as const] }),
-            includePartialMessages: true,
-            abortController,
-            ...(claudeBinary
-              ? { pathToClaudeCodeExecutable: claudeBinary }
-              : {}),
-            ...(task.model ? { model: task.model } : {}),
-            ...(thinkingBudget !== undefined
-              ? { maxThinkingTokens: thinkingBudget }
-              : {}),
-          },
+          options: buildClaudeQueryOptions(task, abortController, claudeBinary),
         }),
       catch: (error) => new SpawnError({ message: boundedError(error) }),
     });

@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "commandGuard": {
+    "operation": "catastrophic",
+    "patternsFile": "hooks/dangerous-patterns.txt"
+  },
+  "modes": {
+    "interactive": {
+      "description": "User-attended execution"
+    },
+    "autonomous": {
+      "description": "Plan-bounded headless execution on an isolated branch or worktree"
+    }
+  },
+  "operations": {
+    "read": {
+      "decision": "allow",
+      "reason": "Non-mutating inspection is within agent authority"
+    },
+    "local-write": {
+      "decision": "allow",
+      "reason": "Reversible writes inside the authorized workspace are within agent authority"
+    },
+    "destructive-local": {
+      "decision": "require-user",
+      "reason": "Destructive local changes require an exact user or approved-plan grant"
+    },
+    "external-write": {
+      "decision": "require-user",
+      "reason": "Remote or public state changes require an exact user grant"
+    },
+    "sensitive": {
+      "decision": "require-user",
+      "reason": "Security, privacy, credentials, money, production, releases, and irreversible data changes require the user"
+    },
+    "catastrophic": {
+      "decision": "deny",
+      "reason": "Catastrophic operations are prohibited in every execution mode"
+    }
+  },
+  "profiles": {
+    "safe": {
+      "doctorScope": "repository",
+      "harnesses": {
+        "claude": {
+          "permissionMode": "default",
+          "allowDangerouslySkipPermissions": false
+        },
+        "codex": {
+          "approvalPolicy": "on-request",
+          "sandbox": "workspace-write"
+        },
+        "opencode": {
+          "permission": "ask"
+        },
+        "pi": {
+          "projectTrust": "ask"
+        }
+      }
+    },
+    "autonomous": {
+      "doctorScope": "repository",
+      "harnesses": {
+        "claude": {
+          "permissionMode": "dontAsk",
+          "allowDangerouslySkipPermissions": false
+        },
+        "codex": {
+          "approvalPolicy": "never",
+          "sandbox": "workspace-write"
+        }
+      }
+    },
+    "auto-approve": {
+      "doctorScope": "installed-profile",
+      "harnesses": {
+        "claude": {
+          "permissionMode": "bypassPermissions",
+          "allowDangerouslySkipPermissions": true
+        },
+        "codex": {
+          "approvalPolicy": "never",
+          "sandbox": "danger-full-access"
+        },
+        "opencode": {
+          "permission": "allow"
+        },
+        "pi": {
+          "projectTrust": "always"
+        }
+      }
+    }
+  }
+}

@@ -5,6 +5,16 @@ test_home="$(mktemp -d)"
 trap 'rm -rf "$test_home"' EXIT
 output="$(HOME="$test_home" ./install.sh --dry-run --no-bootstrap)"
 
+grep -Fq "(permission profile: safe)" <<<"$output" || {
+  echo "install.sh does not default to the safe permission profile" >&2
+  exit 1
+}
+
+grep -Fq "approval_policy=on-request, sandbox_mode=workspace-write" <<<"$output" || {
+  echo "the default Codex profile is not sandboxed and user-gated" >&2
+  exit 1
+}
+
 grep -Fq "$test_home/.pi/agent/node_modules" <<<"$output" || {
   echo "install.sh does not link Pi extension dependencies into ~/.pi/agent" >&2
   exit 1
@@ -25,7 +35,32 @@ grep -Fq "$test_home/.local/bin/agent-model-route" <<<"$output" || {
   exit 1
 }
 
+grep -Fq "$test_home/.config/agent-config/safety-policy.json" <<<"$output" || {
+  echo "install.sh does not expose the canonical safety policy" >&2
+  exit 1
+}
+
+grep -Fq "$test_home/.local/bin/agent-safety" <<<"$output" || {
+  echo "install.sh does not expose the safety authority command" >&2
+  exit 1
+}
+
 grep -Fq "$test_home/.config/opencode/AGENTS.md" <<<"$output" || {
   echo "install.sh does not expose shared instructions to OpenCode" >&2
   exit 1
 }
+
+grep -Fq "$PWD/hooks/deny-dangerous.sh" <<<"$output" || {
+  echo "install.sh does not install the catastrophic command guard" >&2
+  exit 1
+}
+
+grep -Fq 'scripts/agent-safety.mjs" profile' ./install.sh || {
+  echo "install.sh does not resolve permissions through the safety authority" >&2
+  exit 1
+}
+
+if grep -Eq 'CODEX_(APPROVAL|SANDBOX)="(never|on-request|workspace-write|danger-full-access)"' ./install.sh; then
+  echo "install.sh still contains an independent Codex permission policy" >&2
+  exit 1
+fi

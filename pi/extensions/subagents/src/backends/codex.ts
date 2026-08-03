@@ -24,6 +24,7 @@ import type {
   TranscriptPart,
 } from "../domain.ts";
 import { SendError, SpawnError } from "../domain.ts";
+import { buildCodexThreadStartParams } from "../backend-launch-options.ts";
 
 const REQUEST_TIMEOUT_MS = 30_000;
 const MODEL_LIST_TIMEOUT_MS = 5_000;
@@ -886,16 +887,7 @@ const makeCodexSession = (
           capabilities: { experimentalApi: true },
         });
         writeMessage({ method: "initialized" });
-        // Headless children cannot answer approval prompts. The caller
-        // already chose to launch an autonomous subagent, so give the thread
-        // full workspace access without interactive approval requests.
-        return request("thread/start", {
-          cwd: task.cwd,
-          approvalPolicy: "never",
-          sandbox: "danger-full-access",
-          ephemeral: false,
-          ...(task.model ? { model: task.model } : {}),
-        });
+        return request("thread/start", buildCodexThreadStartParams(task));
       },
       catch: (error) => new SpawnError({ message: boundedError(error) }),
     });
