@@ -44,6 +44,11 @@ mkdir -p "$outside_home" "$outside_target"
 run_install_expect_failure "$outside_home" env HERMES_HOME="$outside_target"
 test ! -e "$outside_target/SOUL.md"
 
+same_home="$test_root/same-home"
+mkdir -p "$same_home"
+run_install_expect_failure "$same_home" env HERMES_HOME="$same_home"
+test ! -e "$same_home/SOUL.md"
+
 symlink_home="$test_root/symlink-home"
 symlink_target="$test_root/symlink-target"
 mkdir -p "$symlink_home/.hermes/profiles" "$symlink_target"
@@ -51,6 +56,32 @@ ln -s "$symlink_target" "$symlink_home/.hermes/profiles/cloud"
 printf 'cloud\n' > "$symlink_home/.hermes/active_profile"
 run_install_expect_failure "$symlink_home" env
 test ! -e "$symlink_target/SOUL.md"
+
+soul_symlink_home="$test_root/soul-symlink-home"
+soul_symlink_target="$test_root/soul-symlink-target.md"
+mkdir -p "$soul_symlink_home/.hermes/profiles/cloud" "$soul_symlink_home/.config/opencode"
+printf '{}\n' > "$soul_symlink_home/.config/opencode/opencode.jsonc"
+printf 'cloud\n' > "$soul_symlink_home/.hermes/active_profile"
+printf 'Linked personality.\n' > "$soul_symlink_target"
+cp "$soul_symlink_target" "$test_root/soul-symlink-target-before.md"
+ln -s "$soul_symlink_target" "$soul_symlink_home/.hermes/profiles/cloud/SOUL.md"
+soul_link_before="$(readlink "$soul_symlink_home/.hermes/profiles/cloud/SOUL.md")"
+
+set +e
+soul_symlink_output="$(
+  HOME="$soul_symlink_home" "$repo/install.sh" --no-bootstrap 2>&1
+)"
+soul_symlink_status=$?
+set -e
+
+[ "$soul_symlink_status" -ne 0 ]
+grep -Fq 'Refusing to update symlinked coordinator SOUL' <<<"$soul_symlink_output"
+assert_safety_installed "$soul_symlink_home"
+test -L "$soul_symlink_home/.hermes/profiles/cloud/SOUL.md"
+[ "$(readlink "$soul_symlink_home/.hermes/profiles/cloud/SOUL.md")" = "$soul_link_before" ]
+cmp -s "$test_root/soul-symlink-target-before.md" "$soul_symlink_target"
+cmp -s "$test_root/soul-symlink-target-before.md" \
+  "$soul_symlink_home/.hermes/profiles/cloud/SOUL.md"
 
 malformed_home="$test_root/malformed-home"
 mkdir -p "$malformed_home/.hermes/profiles/cloud"

@@ -115,6 +115,25 @@ if (mode !== 0o600) throw new Error(`expected mode 0600, got ${mode.toString(8)}
 ' "$no_newline_home/.hermes/profiles/cloud/SOUL.md"
 rm -rf "$no_newline_home"
 
+restrictive_umask_home="$(mktemp -d)"
+mkdir -p "$restrictive_umask_home/.hermes/profiles/cloud"
+printf 'cloud\n' > "$restrictive_umask_home/.hermes/active_profile"
+printf 'World-readable personality.\n' \
+  > "$restrictive_umask_home/.hermes/profiles/cloud/SOUL.md"
+chmod 644 "$restrictive_umask_home/.hermes/profiles/cloud/SOUL.md"
+
+(
+  umask 077
+  HOME="$restrictive_umask_home" "$repo/install.sh" --no-bootstrap >/dev/null
+)
+
+node -e '
+const fs = require("node:fs");
+const mode = fs.statSync(process.argv[1]).mode & 0o777;
+if (mode !== 0o644) throw new Error(`expected mode 0644, got ${mode.toString(8)}`);
+' "$restrictive_umask_home/.hermes/profiles/cloud/SOUL.md"
+rm -rf "$restrictive_umask_home"
+
 replacement_home="$(mktemp -d)"
 mkdir -p "$replacement_home/.hermes/profiles/cloud"
 printf 'cloud\n' > "$replacement_home/.hermes/active_profile"

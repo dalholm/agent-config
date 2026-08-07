@@ -75,18 +75,20 @@ Orca-ägda worktrees. Rena kunskapsfrågor besvaras fortfarande direkt.
 Installern behåller kompatibilitetslänkarna i `~/.hermes/skills/` och länkar dessutom
 alla delade skills i den aktiva koordinatorprofilen. Målet väljs i denna ordning:
 
-1. `HERMES_HOME`, om variabeln är satt till en katalog under användarens hemkatalog.
-   Relativa värden tolkas från `$HOME`; absoluta värden används direkt.
+1. `HERMES_HOME`, om variabeln är satt till en katalog strikt under användarens
+   hemkatalog (inte till `$HOME` självt). Relativa värden tolkas från `$HOME`;
+   absoluta värden används direkt.
 2. `~/.hermes/profiles/{active-profile}`, om `~/.hermes/active_profile` pekar ut en
    befintlig profilkatalog.
 3. `~/.hermes` som fallback.
 
 Målet kan vara nytt, men dess längsta befintliga sökväg kanoniseras innan något
 skrivs. Symlänkar följs vid kontrollen och det slutliga målet måste vara `$HOME` eller
-ligga under `$HOME`; ett `HERMES_HOME` eller en befintlig profillsymlänk som leder
-utanför hemkatalogen avvisas. Profilnamnet måste vara en enda komponent med bokstäver,
-siffror, punkt, understreck eller bindestreck, men får inte vara `.` eller `..`.
-Ogiltiga namn och saknade profilkataloger ger fallback till `~/.hermes`.
+ligga under `$HOME`; ett explicit `HERMES_HOME` måste dessutom vara en strikt
+underkatalog. Ett `HERMES_HOME` eller en befintlig profillsymlänk som leder utanför
+hemkatalogen avvisas. Profilnamnet måste vara en enda komponent med bokstäver, siffror,
+punkt, understreck eller bindestreck, men får inte vara `.` eller `..`. Ogiltiga namn
+och saknade profilkataloger ger fallback till `~/.hermes`.
 
 Endast den valda profilen får det marköravgränsade, repoägda koordinationsblocket i
 `SOUL.md`. Befintlig personlighet behålls. En tidsstämplad `SOUL.md.bak-*` skapas bara
@@ -94,8 +96,11 @@ när en befintlig fil faktiskt behöver ändras; en identisk ominstallation skap
 backup. Filens befintliga behörighetsläge behålls vid omskrivning. Safety-hook och vald
 permission-profil installeras innan koordinatormålet hanteras, så ett avvisat mål eller
 ett felaktigt `SOUL.md` lämnar säkerhetskopplingen på plats även när installern avslutas
-med fel. `--dry-run` visar både profilmål, skill-länkar, backup och SOUL-merge utan att
-ändra dem.
+med fel. Ett `SOUL.md` som är en symlänk avvisas också utan att länken eller dess mål
+ändras. Om en befintlig personlighet saknar avslutande radbrytning lägger installationen
+in en som avskiljare; den radbrytningen blir kvar efter avinstallation som en avsiktlig
+round-trip-normalisering. `--dry-run` visar både profilmål, skill-länkar, backup och
+SOUL-merge utan att ändra dem.
 
 ## Avinstallera
 
@@ -109,10 +114,14 @@ Avinstallern är konservativ: den tar bort symlänkar/config-rader som pekar på
 repo, söker igenom `~/.hermes` och alla säkert resolverade kataloger under
 `~/.hermes/profiles/`, och tar bara bort det marköravgränsade koordinatorblocket och
 repoägda skill-länkar. Därmed städas även profiler som var aktiva vid en tidigare
-installation. All annan Hermes-personlighet, främmande skill-länkar och alla
-backupfiler behålls. En felaktigt markerad `SOUL.md` lämnas orörd utan att stoppa
-konservativ städning i övriga profiler. Avinstallern raderar inte repot,
-Pi-autentisering, sessionshistorik eller externa verktyg som Node/Pi.
+installation. Ett explicit koordinatorhem utanför dessa standardplatser återupptäcks
+bara om samma `HERMES_HOME` skickas till avinstallationen. All annan
+Hermes-personlighet, främmande skill-länkar och alla backupfiler behålls. En felaktigt
+markerad eller symlänkad `SOUL.md` lämnas orörd utan att stoppa konservativ städning i
+övriga profiler. En tom `SOUL.md` och tomma `skills/`-kataloger kan därför bli kvar;
+avinstallern tar konservativt bort repoägt innehåll men inte artefakter som den inte
+säkert kan tillskriva repot. Den raderar inte repot, Pi-autentisering,
+sessionshistorik eller externa verktyg som Node/Pi.
 
 Repoet innehåller fokuserade skills för bland annat TDD, implementation, diagnostik,
 prototyper, grillning, domänmodellering, PRD:er, issues, review och QA. Installern

@@ -20,9 +20,10 @@ function canonicalizeCandidate(candidate) {
 
 const home = path.resolve(process.env.HOME || os.homedir());
 const hermesRoot = path.join(home, ".hermes");
+const explicitHermesHome = Boolean(process.env.HERMES_HOME);
 let candidate;
 
-if (process.env.HERMES_HOME) {
+if (explicitHermesHome) {
   candidate = path.resolve(home, process.env.HERMES_HOME);
 } else {
   candidate = hermesRoot;
@@ -40,7 +41,13 @@ if (process.env.HERMES_HOME) {
 
 const canonicalHome = fs.realpathSync(home);
 const resolved = canonicalizeCandidate(candidate);
-if (resolved !== canonicalHome && !resolved.startsWith(`${canonicalHome}${path.sep}`)) {
+const isStrictDescendant = resolved.startsWith(`${canonicalHome}${path.sep}`);
+if (explicitHermesHome && !isStrictDescendant) {
+  throw new Error(
+    `Explicit HERMES_HOME must resolve below the current user's home: ${resolved}`,
+  );
+}
+if (!explicitHermesHome && resolved !== canonicalHome && !isStrictDescendant) {
   throw new Error(`Hermes home must resolve under the current user's home: ${resolved}`);
 }
 

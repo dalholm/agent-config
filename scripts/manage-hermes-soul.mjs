@@ -85,15 +85,24 @@ function nextBackupPath(soulPath, stamp) {
 
 function replaceFile(filePath, content, mode) {
   const temporaryPath = `${filePath}.tmp-${process.pid}`;
-  const options = mode === undefined ? { flag: "wx" } : { flag: "wx", mode };
-  fs.writeFileSync(temporaryPath, content, options);
+  fs.writeFileSync(temporaryPath, content, { flag: "wx" });
+  if (mode !== undefined) fs.chmodSync(temporaryPath, mode);
   fs.renameSync(temporaryPath, filePath);
 }
 
 const action = valueAfter("--action");
 const soulPath = path.resolve(valueAfter("--soul"));
 const dryRun = process.argv.includes("--dry-run");
-const exists = fs.existsSync(soulPath);
+let soulEntry;
+try {
+  soulEntry = fs.lstatSync(soulPath);
+} catch (error) {
+  if (error.code !== "ENOENT") throw error;
+}
+if (soulEntry?.isSymbolicLink()) {
+  throw new Error(`Refusing to update symlinked coordinator SOUL: ${soulPath}`);
+}
+const exists = soulEntry !== undefined;
 const current = exists ? fs.readFileSync(soulPath, "utf8") : "";
 const mode = exists ? fs.statSync(soulPath).mode & 0o7777 : undefined;
 
