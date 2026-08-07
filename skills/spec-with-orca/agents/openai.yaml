@@ -1,0 +1,4 @@
+interface:
+  display_name: "Spec with Orca"
+  short_description: "Create repository-grounded specs through Orca"
+  default_prompt: "Use $spec-with-orca to develop an approved repository specification without implementing it."

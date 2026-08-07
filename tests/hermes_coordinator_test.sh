@@ -12,9 +12,13 @@ HOME="$test_home" "$repo/install.sh" --no-bootstrap >/dev/null
 
 coordinator_home="$test_home/.hermes/profiles/cloud"
 test -L "$test_home/.hermes/skills/orca-development-orchestrator"
+test -L "$test_home/.hermes/skills/spec-with-orca"
 test -L "$coordinator_home/skills/orca-development-orchestrator"
 test -L "$coordinator_home/skills/complexity-router"
 test -L "$coordinator_home/skills/model-routing"
+test -L "$coordinator_home/skills/spec-with-orca"
+test "$(readlink "$coordinator_home/skills/spec-with-orca")" = \
+  "$repo/skills/spec-with-orca"
 test -f "$coordinator_home/SOUL.md"
 
 start_marker='<!-- agent-config:hermes-orca-coordinator:start -->'

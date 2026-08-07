@@ -201,6 +201,8 @@ får aktiveras.
   aktiva Hermes-koordinatorprofilen.
 - `skills/orca-development-orchestrator/SKILL.md` — Hermes-specifik procedur för
   delegerad utveckling genom Orca.
+- `skills/spec-with-orca/SKILL.md` — Hermes-ledd specifikationsintervju där
+  kodbasundersökning och designsondering delegeras till Orca-workers.
 - `skills/complexity-router/SKILL.md` — router som riktig skill där harnesset stödjer det.
 - `skills/model-routing/SKILL.md` — roll/tier-policy och ansvarsfördelning vid dispatch/spawn.
 - `skills/goal-watcher/SKILL.md` — drift-väktare för autonoma körningar.
