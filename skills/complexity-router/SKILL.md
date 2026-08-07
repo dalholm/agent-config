@@ -17,7 +17,8 @@ that the track and task call for.
 1. Decide whether the user's message is asking for work or only asking a question. If
    it is only a question, answer directly as T0 and do not enter a code/change flow.
 2. Classify work requests into a track (below).
-3. Announce it in one line: `Router: T1 (small) — TDD only.`
+3. For work, announce it in one line: `Router: T1 (small) — TDD only.` Direct
+   questions are answered without track, role, or tier announcements.
 4. Enter only the workflow parts that track requires.
 5. Keep the **Controller** (escalation) active for the rest of the task.
 
@@ -35,6 +36,21 @@ desire for autonomous work.
 
 **Bias rule:** in doubt between two tracks, choose the **heavier** one. Do not route a
 task *down* because it "feels simple" — that instinct is why estimates are wrong.
+
+## Select skills, not a pipeline
+
+Skills are composable procedures. Do not automatically run an end-to-end engineering
+workflow merely because its skills are installed.
+
+- Explicit user invocation wins.
+- User-facing orchestration skills such as `ask-matt`, `grill-me`, `grill-with-docs`,
+  `triage`, and `implement` run when the user invokes them or clearly asks for that
+  workflow.
+- Model-facing discipline skills such as `tdd`, `diagnosing-bugs`, `domain-modeling`,
+  and `codebase-design` may be selected when their task trigger matches.
+- Load the smallest set that covers the selected track and task.
+- Model and child-agent selection is a separate concern. Load `model-routing` only at
+  a dispatch or spawn boundary.
 
 ## Controller — escalate if it grows
 
@@ -58,6 +74,26 @@ Scale the **ceremony** (brainstorm, spec, plan, subagents). Keep the **quality g
 config changes where no meaningful failing behavior test exists, use the nearest useful
 verification instead: dry-run, parser check, grep assertion, or syntax validation. Only
 drop verification entirely if the user explicitly says so for this task.
+
+## T3 hands-off execution
+
+When the user explicitly requests autonomous work, keep execution bounded by the
+approved plan.
+
+Preconditions:
+
+- The plan is approved and finite.
+- Work runs on its own branch/worktree, never on main.
+- Grants for gated operations are recorded in the request or plan.
+- The selected execution profile passes the policy-required `agent-safety doctor`
+  scope (`repository` for workspace-sandboxed autonomy, `installed-profile` for
+  elevated execution).
+
+During autonomous execution, keep TDD and review between tasks. Resolve ordinary
+tripwires by gathering context, selecting an appropriate tier through `model-routing`,
+or decomposing the task further. Escalate only for a genuine dead end or fundamental
+scope change. Stop when all plan tasks are done, an unresolvable block remains, or the
+scope must change. Report what was built, skipped, and still needs human attention.
 
 ## Red flags (you are rationalizing — stop)
 

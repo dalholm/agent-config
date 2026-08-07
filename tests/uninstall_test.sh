@@ -7,6 +7,9 @@ trap 'rm -rf "$test_home"' EXIT
 
 mkdir -p "$test_home/.config/opencode"
 printf '{}\n' > "$test_home/.config/opencode/opencode.jsonc"
+mkdir -p "$test_home/.claude"
+printf '{"hooks":{"UserPromptSubmit":[{"hooks":[{"type":"command","command":"%s/hooks/router-reminder.sh"}]}]}}\n' \
+  "$repo" > "$test_home/.claude/settings.json"
 
 grep -Fq 'scripts/agent-safety.mjs" profile' "$repo/uninstall.sh" || {
   echo "uninstall.sh does not resolve safe defaults through the safety authority" >&2
@@ -25,8 +28,16 @@ test -L "$test_home/.local/bin/agent-model-route"
 test -L "$test_home/.config/agent-config/safety-policy.json"
 test -L "$test_home/.local/bin/agent-safety"
 test -L "$test_home/.hermes/skills/complexity-router"
+test -L "$test_home/.hermes/skills/model-routing"
 test -L "$test_home/.config/opencode/AGENTS.md"
 test -L "$test_home/.pi/agent/node_modules"
+
+if jq -e --arg command "$repo/hooks/router-reminder.sh" '
+    [.. | objects | .command? // empty] | index($command) != null
+  ' "$test_home/.claude/settings.json" >/dev/null; then
+  echo "install.sh left the retired per-prompt router hook installed" >&2
+  exit 1
+fi
 
 jq -e --arg command "$repo/hooks/deny-dangerous.sh" '
   [.. | objects | .command? // empty] | index($command) != null
@@ -135,6 +146,7 @@ test ! -e "$test_home/.local/bin/agent-model-route"
 test ! -e "$test_home/.config/agent-config/safety-policy.json"
 test ! -e "$test_home/.local/bin/agent-safety"
 test ! -e "$test_home/.hermes/skills/complexity-router"
+test ! -e "$test_home/.hermes/skills/model-routing"
 test ! -e "$test_home/.config/opencode/AGENTS.md"
 test ! -e "$test_home/.pi/agent/node_modules"
 

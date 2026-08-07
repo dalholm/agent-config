@@ -12,7 +12,7 @@
 # Usage:
 #   ./install.sh             # install with the safe permission profile
 #   ./install.sh --dry-run   # show what would happen, change nothing
-#   ./install.sh --no-bootstrap   # symlinks/hook only; never install external tools
+#   ./install.sh --no-bootstrap   # configuration only; never install external tools
 #   ./install.sh --safe-profile   # explicit alias for the safe default
 #   ./install.sh --auto-approve   # explicit elevated profile; requires a healthy doctor
 #
@@ -121,7 +121,7 @@ set_toml_keys() {
 
 say "Repo: $REPO"
 [ "$DRY_RUN" = 1 ] && say "(dry run — no changes)"
-[ "$BOOTSTRAP" = 0 ] && say "(--no-bootstrap — symlinks/hook only, no tool installs)"
+[ "$BOOTSTRAP" = 0 ] && say "(--no-bootstrap — configuration only, no tool installs)"
 say "(permission profile: $PERMISSION_PROFILE)"
 say ""
 
@@ -176,7 +176,7 @@ link "$REPO/scripts/agent-safety.mjs" "$HOME/.local/bin/agent-safety"
 say ""
 
 say "Obsidian spec vault:"
-# Specs/plans live in the Obsidian vault (AGENTS.md §7). Ensure the folder exists so
+# Specs/plans live in the Obsidian vault (AGENTS.md §6). Ensure the folder exists so
 # agents can write into it; the shared AGENTS.md tells every harness, including Pi.
 SPECS="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/dalholm/Projects/general/specs"
 run "mkdir -p '$SPECS'"
@@ -195,32 +195,31 @@ say "Hermes skills:"
 link_skills_to "$HOME/.hermes/skills" "$REPO/skills"
 say ""
 
-say "Claude Code hook (UserPromptSubmit):"
-HOOK="$REPO/hooks/router-reminder.sh"
-run "chmod +x '$HOOK'"
+say "Retired per-prompt workflow router:"
+ROUTER_HOOK="$REPO/hooks/router-reminder.sh"
 SETTINGS="$HOME/.claude/settings.json"
-if command -v jq >/dev/null 2>&1; then
-  run "mkdir -p '$HOME/.claude'"
+if command -v jq >/dev/null 2>&1 && [ -f "$SETTINGS" ]; then
   if [ "$DRY_RUN" = 1 ]; then
-    say "  would: merge UserPromptSubmit hook into $SETTINGS (via jq)"
+    say "  would: remove retired UserPromptSubmit command $ROUTER_HOOK from $SETTINGS"
   else
-    [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
-    if jq -e --arg c "$HOOK" \
-        '[.. | objects | .command? // empty] | index($c)' "$SETTINGS" >/dev/null 2>&1; then
-      say "  ok (hook already present): $SETTINGS"
-    else
-      tmp="$(mktemp)"
-      jq --arg c "$HOOK" '
-        .hooks //= {} |
-        .hooks.UserPromptSubmit //= [] |
-        .hooks.UserPromptSubmit += [ { "hooks": [ { "type": "command", "command": $c } ] } ]
-      ' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
-      say "  merged hook into: $SETTINGS"
-    fi
+    tmp="$(mktemp)"
+    jq --arg hook "$ROUTER_HOOK" '
+      if .hooks.UserPromptSubmit then
+        .hooks.UserPromptSubmit |=
+          map(.hooks = ((.hooks // []) | map(select(.command != $hook))))
+        | .hooks.UserPromptSubmit |= map(select((.hooks // []) | length > 0))
+        | if (.hooks.UserPromptSubmit | length) == 0 then del(.hooks.UserPromptSubmit) else . end
+        | if (.hooks | length) == 0 then del(.hooks) else . end
+      else
+        .
+      end
+    ' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
+    say "  removed retired router hook from: $SETTINGS"
   fi
+elif [ -f "$SETTINGS" ]; then
+  say "  jq not found — remove this command manually from $SETTINGS: $ROUTER_HOOK"
 else
-  say "  jq not found — add this hook manually to $SETTINGS"
-  say "  (see hooks/settings-snippet.json; set command to: $HOOK)"
+  say "  ok (no Claude settings file to migrate)"
 fi
 say ""
 

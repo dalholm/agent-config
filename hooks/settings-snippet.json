@@ -1,16 +1,6 @@
 {
-  "_comment": "Merge this into ~/.claude/settings.json. install.sh does this automatically with the real repo path if jq is installed. Replace /path/to/agent-config if adding manually.",
+  "_comment": "Merge this guard into ~/.claude/settings.json. install.sh does this automatically with the real repo path if jq is installed. Replace /path/to/agent-config if adding manually.",
   "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/path/to/agent-config/hooks/router-reminder.sh"
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "matcher": "Bash",

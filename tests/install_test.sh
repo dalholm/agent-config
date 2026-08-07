@@ -25,6 +25,16 @@ grep -Fq "$test_home/.hermes/skills/complexity-router" <<<"$output" || {
   exit 1
 }
 
+grep -Fq "$test_home/.hermes/skills/model-routing" <<<"$output" || {
+  echo "install.sh does not expose model-routing policy as an on-demand skill" >&2
+  exit 1
+}
+
+if grep -Fq "merge UserPromptSubmit hook" <<<"$output"; then
+  echo "install.sh still injects the workflow router into every prompt" >&2
+  exit 1
+fi
+
 grep -Fq "$test_home/.config/agent-config/model-routing.json" <<<"$output" || {
   echo "install.sh does not expose the shared model-routing registry" >&2
   exit 1
@@ -62,5 +72,20 @@ grep -Fq 'scripts/agent-safety.mjs" profile' ./install.sh || {
 
 if grep -Eq 'CODEX_(APPROVAL|SANDBOX)="(never|on-request|workspace-write|danger-full-access)"' ./install.sh; then
   echo "install.sh still contains an independent Codex permission policy" >&2
+  exit 1
+fi
+
+grep -Fq 'skills/complexity-router/SKILL.md' ./AGENTS.md || {
+  echo "AGENTS.md does not delegate workflow details to complexity-router" >&2
+  exit 1
+}
+
+grep -Fq 'skills/model-routing/SKILL.md' ./AGENTS.md || {
+  echo "AGENTS.md does not delegate model-selection details to model-routing" >&2
+  exit 1
+}
+
+if grep -Fq '## 4. Provider-independent agent routing' ./AGENTS.md; then
+  echo "AGENTS.md still embeds the detailed routing procedure in default context" >&2
   exit 1
 fi

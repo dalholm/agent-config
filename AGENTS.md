@@ -1,296 +1,88 @@
 # Agent Operating Rules
 
-These are my (the user's) standing instructions. They are the **highest-priority
-user-owned instructions** and override skills and harness defaults. They operate
-within the harness's system, developer, and safety constraints.
-
----
-
-## 0. THE ROUTER — run this FIRST, before anything else
-
-Before invoking **any** skill — and before asking clarifying questions — first decide
-whether the user's message is asking for work or only asking a question. If it is only
-a question, answer it directly as T0 and do **not** enter a code/change workflow. If it
-asks for a build, code change, fix, feature, implementation, review, investigation, or
-other work, classify the task's complexity and pick a track.
-The router is a **dispatcher**: it decides how much process the task needs and which
-of the available skills, if any, apply. Skills are a menu, not a default pipeline.
-
-### Tracks
-
-| Track | Looks like | What to run |
-|-------|-----------|-------------|
-| **T0 — Trivial** | typo, rename, copy/text change, one-line config, a direct question | Just do it. No ceremony. |
-| **T1 — Small** | one function, one file, clear requirements, low ambiguity | TDD only. Skip brainstorm, spec, plan, subagents. |
-| **T2 — Medium** | a few files, some integration, moderate ambiguity | Light brainstorm (1–2 questions) + TDD. Manual execution. No written spec is required; if one helps, save it in Obsidian. Skip subagent ceremony unless it helps. |
-| **T3 — Large** | new feature, multiple subsystems, unclear requirements, or you want autonomous multi-step work | Full workflow: grilling/design → spec and plan → implementation → review and QA. Use subagents when they materially help. |
-
-### How to classify (signals)
-
-Weigh: number of files touched, ambiguity of requirements, bugfix vs. new feature,
-blast radius (how much breaks if wrong), reversibility, and whether the user wants
-hands-off autonomous work.
-
-### Bias rule
-
-**When in doubt between two tracks, pick the heavier one.** Under-routing a task that
-turns out to be big is far more expensive than a little extra ceremony. Do not
-rationalize a task *down* a track because it "feels simple" — that exact instinct is
-why estimates are wrong.
-
-### Announce the track
-
-State it in one short line before you start, e.g. `Router: T1 (small) — TDD only.`
-The user can override the track at any time by saying so.
-
----
-
-## 1. THE CONTROLLER — escalate if the task grows
-
-A ratchet that only goes **up**: switch to a heavier track mid-task when the work
-turns out bigger than the router assumed. Never downgrade mid-task (sunk-cost trap).
-
-Trip on these **objective** signals (not vibes):
-
-- Touching more files than the track assumed (e.g. > 2 files on T1).
-- A test is hard to write → the design is unclear. Escalate.
-- A bug appears that needs investigation rather than a one-line fix.
-- A design decision is required that wasn't in the original request.
-- You've edited the same area 3+ times or "fixed" the same thing repeatedly.
-
-Check at natural seams, not constantly: **before writing code, before touching a
-second file, and when a test is hard to write.**
-
-When a tripwire fires: **stop, tell the user, propose moving up a track.** Do not
-silently keep grinding on the light track. Example:
-`Controller: this grew (now touching 4 files) — propose moving to T2 with a short design pass. OK?`
-
----
-
-## 2. Ceremony vs. quality gates
-
-Separate the two. The router/controller scale the **ceremony**. They do **not** turn
-off the **quality gates**.
-
-- **Ceremony (scalable):** brainstorming dialogue, written spec docs, formal plans,
-  subagent dispatch + two-stage review.
-- **Quality gates (keep on almost always):** **TDD** for behavior-bearing code changes
-  (write the failing test first), and a final self-review before declaring done. Keep
-  TDD even on T1 when code behavior changes — a test is cheap insurance. For pure
-  documentation, prompt, copy, wiring, or config changes where no meaningful failing
-  behavior test exists, use the nearest useful verification instead (for example a
-  dry-run, parser check, grep assertion, or syntax validation). Only skip verification
-  entirely if the user explicitly says so for this task.
-
----
-
-## 2a. One authority for safety and autonomy
-
-`safety-policy.json` is the sole machine-readable authority for safety and autonomy.
-Harness permissions, subagent launchers, hooks, workflow checks, instructions, and
-skills consume that policy; none of them may independently expand authority.
-
-The policy returns one of three decisions for an operation class:
-
-- `allow`: the current authority is sufficient.
-- `require-user`: proceed only with an exact user grant recorded in the request or the
-  approved plan. A preference, model choice, oracle decision, or child spawn is not a
-  grant.
-- `deny`: do not proceed. A user grant does not override this decision.
-
-Model provider, role, tier, reasoning effort, and execution mode never grant additional
-authority. The `preference-oracle` may resolve documented, reversible preferences and
-validate acceptance criteria; it may not authorize an operation classified as
-`require-user` or `deny`.
-
-Use `agent-safety decide` when an operation's authority is in question. Headless
-autonomy must use a policy-defined execution profile. An elevated or unrestricted
-profile may start only when `agent-safety doctor` reports its required enforcement
-healthy. A hook is an accident backstop, not the policy and not a sandbox.
-
----
-
-## 3. Autonomous mode (T3 hands-off)
-
-When the user asks for hands-off / autonomous work, T3 runs continuously. To stay safe:
-
-- **Preconditions:** an approved plan exists, work is on its own branch/worktree, the
-  plan records any gated operation grants, and the selected execution profile passes
-  its `agent-safety doctor` scope (`repository` for workspace-sandboxed autonomy,
-  `installed-profile` for elevated execution) — never autonomous on main.
-- **Controller changes behaviour:** do NOT stop-and-ask at every tripwire (that kills
-  autonomy). Self-resolve via the BLOCKED ladder (more context → stronger model → break
-  the task down). Escalate to the human ONLY for a genuine dead-end or a
-  **fundamental scope change**.
-- **Quality gates stay on:** TDD + review between tasks, always.
-- **Stop conditions:** all plan tasks done, an unresolvable BLOCKED, or a scope change.
-- **Report back:** what was built, what was skipped, what needs your eyes.
-- Keep the work **plan-bounded** (a finite task list). No open-ended "keep improving"
-  loops.
-
-Two roles support bounded autonomy — see their skills for detail:
-`preference-oracle` answers recurring low-stakes preference questions and validates
-acceptance criteria without granting safety authority; `goal-watcher` guards against
-drift from the spec.
-
-## 4. Provider-independent agent routing
-
-Route each concrete work step on two independent axes:
-
-- **Role** answers: what kind of work is this step doing?
-- **Tier** answers: how difficult, risky, or expensive is this step?
-
-Do not use a model family or provider as a role. Agent identity and memory are also
-separate from routing: changing role or tier does not imply a new persona or memory
-store.
-
-### Choose the role
-
-| Role | Use for |
-|------|---------|
-| `generalist` | Direct questions and ordinary mixed work |
-| `researcher` | Gathering, verifying, and synthesizing sources |
-| `coder` | Implementation, debugging, refactoring, and tests |
-| `designer` | Product, UX, interface, and system design |
-| `reviewer` | Independent verification of completed work |
-| `orchestrator` | Splitting and coordinating multi-step work |
-
-Choose the role for the **next concrete work step**, not the whole conversation. A
-multi-phase request may move from `researcher` to `designer`, then `coder`, then
-`reviewer`. State the transition when the role changes.
-
-Role selection priority:
-
-1. Explicit user selection.
-2. Workflow or task requirement.
-3. Project override.
-4. Parent-agent assignment.
-5. The role table above.
-6. `generalist` if no specialist role fits.
-
-If neither axis is selected explicitly, use `generalist/standard`.
-
-A parent agent must assign `role` and `tier` explicitly when starting a child. The
-child must not guess its assignment from a vague title.
-
-### Choose the tier
-
-| Tier | Use for |
-|------|---------|
-| `fast` | Low-risk routine work where latency matters |
-| `standard` | Normal implementation, research, and coordination |
-| `deep` | Difficult, high-risk, architectural, or final-review work |
-
-Research is not automatically `deep`: a routine lookup is `researcher/fast`, normal
-source comparison is `researcher/standard`, and difficult or high-stakes synthesis is
-`researcher/deep`.
-
-Start with the cheapest tier that can safely complete the step. Escalate when sources
-conflict, stakes are high, synthesis is difficult, the first result is insufficient,
-or the user explicitly asks for deeper reasoning. `goal-watcher`,
-`preference-oracle`, architecture decisions, security review, and final review
-normally use `deep`. Mechanical implementation with a clear specification normally
-uses `fast`; integration, multi-file work, and debugging normally use `standard`.
-
-### Resolve the harness-specific model
-
-Agents request a logical `role` and `tier`; they do not hardcode a provider model
-unless the user explicitly overrides routing. The canonical registry is installed at
-`~/.config/agent-config/model-routing.json`.
-
-Inspect available roles, tiers, presets, and harnesses:
-
-```sh
-agent-model-route --list
-```
-
-Resolve a route before choosing an explicit child model:
-
-```sh
-agent-model-route --harness codex --role coder --tier standard
-agent-model-route --harness claude --role researcher --tier deep
-agent-model-route --harness hermes --preset designer
-```
-
-If the installed command is unavailable, read the repository's
-`model-routing.json`; do not invent a binding.
-
-The resolver maps the same logical request to the current model and reasoning setting
-for Claude and Codex. Hermes uses `strategy: preset`: its `fast`, `coder`, `designer`,
-and `thinker` names select the corresponding verified Hermes profile while also
-expanding to role and tier. They are compatibility presets, not the underlying domain
-model. Do not invent arbitrary Hermes role/tier mappings: no isolated profile exists
-for combinations such as `researcher/standard`. Harnesses without a safe explicit
-binding use `strategy: inherit`; do not silently route them through a paid provider.
-
-The resolver **enforces** registry validation, supported presets, explicit bindings,
-and safe inheritance. Role selection, tier escalation, child assignment, and
-independent-review separation are **agent policy**: required behavior, but not a
-mechanical guarantee.
-
-Routing precedence is:
-
-1. Explicit user model or profile selection.
-2. Task capability or independence constraint.
-3. Project override.
-4. Canonical role/tier binding.
-5. Permitted fallback or inherited harness model.
-
-For independent review, prefer a different model family from the author and a
-different provider when one is available. Do not silently downgrade a security or
-final review. When an explicit child route or fallback is used, record the requested
-role/tier, resolved target, and fallback in the run metadata or result.
-
-## 5. Language: write code and docs in English
-
-**Always write all code and documentation in English** — identifiers, comments,
-commit messages, code comments, READMEs, specs, and inline docs — unless an existing
-file or project already establishes another language, in which case match it. This
-applies regardless of the language we converse in: I may write to you in Swedish, but
-the artifacts you produce stay in English by default.
-
----
-
-## 6. Instruction priority and skills
-
-This file defines the shared operating rules. Available skills provide focused
-workflows for particular tasks, but they do not replace the router or activate as one
-fixed pipeline. Within system, developer, and safety constraints, user-controlled
-priority is: **explicit user request > this file > applicable skills > harness
-defaults.** If a skill conflicts with the user's CLAUDE.md / AGENTS.md / GEMINI.md,
-follow the user's instruction file.
-
-Keep this file limited to stable rules that should affect most turns. Put
-task-specific procedures in skills, volatile model facts in registries, and project
-decisions in Obsidian. Before adding permanent text, ask whether it must stay in every
-agent's context; if not, link or load it on demand.
-
-## 7. Specs & plans live in Obsidian
-
-Use my Obsidian vault as the persistent project memory. When I ask about projects,
-plans, decisions, prior work, or context that may already exist, search the whole
-vault before guessing:
-
-**`~/Library/Mobile Documents/iCloud~md~obsidian/Documents/dalholm/`**
-(absolute: `/Users/dalholm/Library/Mobile Documents/iCloud~md~obsidian/Documents/dalholm/`)
-
-Written specs and plans are stored in that vault — not scattered across repos. The
-canonical folder for specs and plans is project-specific:
-
-**`~/Library/Mobile Documents/iCloud~md~obsidian/Documents/dalholm/Projects/{project-slug}/specs/`**
-(absolute: `/Users/dalholm/Library/Mobile Documents/iCloud~md~obsidian/Documents/dalholm/Projects/{project-slug}/specs/`)
-
-Use the current repository or project directory name as `{project-slug}`. Slug it with
-lowercase letters, numbers, and hyphens. If there is no clear project name, use:
-
-**`~/Library/Mobile Documents/iCloud~md~obsidian/Documents/dalholm/Projects/general/specs/`**
-
-- T2 does not require a written spec. When any task does produce a spec or written
-  plan — including T3's brainstorming → spec → writing-plan flow — **save it there as
-  a Markdown file**. Make it Obsidian-friendly: a clear `# Title` and `[[wikilinks]]`
-  to related notes where useful.
-- **Before** starting non-trivial work, check that folder for an existing spec on the
-  same topic and build on it instead of duplicating.
-- Name files descriptively (`<projekt>-<feature>.md`) and date-stamp inside the doc.
-- The vault is the home of record. A repo-local copy is fine only as a pointer back to
-  the vault note, never the master.
+These are the user's standing instructions. They are the highest-priority
+user-owned instructions and operate within system, developer, and safety constraints.
+
+## 1. Dispatch work; answer questions directly
+
+- If the message only asks a question, answer it directly. Do not announce a track,
+  role, tier, or workflow.
+- Before any build, code change, fix, feature, review, or investigation, load and
+  follow [skills/complexity-router/SKILL.md](skills/complexity-router/SKILL.md). It owns
+  T0-T3 classification, workflow selection, and upward-only Controller escalation.
+- Announce the selected track only when starting work or when the Controller escalates.
+- Skills are a menu, not a default pipeline. Use only the skills whose triggers match
+  the task; an explicit user invocation takes precedence.
+
+## 2. Keep quality gates on
+
+- Use TDD for behavior-bearing code changes: write one failing behavior test, make it
+  pass, and continue in vertical slices.
+- For documentation, prompt, wiring, or configuration changes without a meaningful
+  behavior test, use the nearest useful verification such as a dry-run, parser check,
+  grep assertion, or syntax validation.
+- Perform a final self-review before declaring work complete. Do not skip verification
+  unless the user explicitly asks for that in the current task.
+
+## 3. Keep authority separate from capability
+
+- `safety-policy.json` is the sole machine-readable authority for safety and autonomy.
+  Harness permissions, hooks, launchers, workflows, and skills may enforce it but may
+  not independently expand authority.
+- Use `agent-safety decide` when an operation's authority is unclear. A model, role,
+  tier, preference, execution mode, or child agent never grants additional authority.
+- Headless autonomy requires an approved, finite plan, an isolated branch/worktree,
+  recorded grants for gated operations, and a healthy policy-defined execution
+  profile. Never run autonomously on the main branch.
+- Autonomous work stops when the plan is complete, genuinely blocked, or requires a
+  fundamental scope change. Detailed T3 behavior lives in `complexity-router` and its
+  supporting skills.
+
+## 4. Route at the orchestration boundary
+
+- When selecting or spawning a child agent, workflow agent, or harness model, load and
+  follow [skills/model-routing/SKILL.md](skills/model-routing/SKILL.md).
+- Agents select a logical `role` and `tier`. `model-routing.json` is the canonical
+  registry that maps that request to a harness-specific model or profile.
+- The orchestrator owns execution concerns such as task splitting, dependencies,
+  worktrees, retries, and parallelism. The harness adapter resolves and binds the model
+  at the spawn boundary. Neither owns a duplicate model table.
+
+## 5. Write code and documentation in English
+
+Write identifiers, comments, commit messages, READMEs, specs, and inline documentation
+in English unless the existing project clearly establishes another language. The
+conversation may use another language.
+
+## 6. Keep durable knowledge in the right place
+
+- Stable rules that affect nearly every turn belong here.
+- Reusable procedures belong in skills.
+- Volatile provider and model bindings belong in registries.
+- Project decisions, specs, and plans belong in the Obsidian vault, not as duplicate
+  master copies in repositories.
+
+For project context or prior decisions, search the vault before guessing:
+
+`/Users/dalholm/Library/Mobile Documents/iCloud~md~obsidian/Documents/dalholm/`
+
+Store any written spec or plan under:
+
+`/Users/dalholm/Library/Mobile Documents/iCloud~md~obsidian/Documents/dalholm/Projects/{project-slug}/specs/`
+
+Use the lowercase repository or project directory name as `{project-slug}`. If no
+project is clear, use `Projects/general/specs/`. Make notes Obsidian-friendly with a
+clear title, an internal date stamp, and relevant `[[wikilinks]]`.
+
+## 7. Resolve instruction conflicts consistently
+
+Within system, developer, and safety constraints, user-controlled priority is:
+
+1. Explicit request for the current task.
+2. This file or a project-specific user instruction file.
+3. Applicable skills.
+4. Harness defaults.
+
+If a skill conflicts with these standing or project instructions, follow the user
+instruction. Before adding permanent text here, ask whether every agent needs it in
+every context; otherwise put it in a skill, registry, or project note.

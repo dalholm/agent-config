@@ -6,25 +6,28 @@ disciplin.
 
 ## Idén
 
-En **router** klassar uppgiftens komplexitet *innan* något körs och väljer spår
-(T0 trivialt → T3 fullt arbetsflöde). En **kontrollant** eskalerar spåret om jobbet
-visar sig växa. Ceremonin (design/spec/plan/subagenter) skalas; kvalitetsgrindarna
-(framför allt TDD) behålls. Repoets skills är en meny som routern väljer från, inte en
-fast pipeline. Prioriteten är:
+Direkta frågor besvaras utan workflow-ceremoni. När arbete ska utföras laddas
+**complexity-router**, som väljer spår (T0 trivialt → T3 fullt arbetsflöde) och vars
+**kontrollant** eskalerar om jobbet växer. Ceremonin (design/spec/plan/subagenter)
+skalas; kvalitetsgrindarna (framför allt TDD) behålls. Repoets skills är en meny, inte
+en fast pipeline. Prioriteten är:
 **uttrycklig användarinstruktion > AGENTS.md > relevanta skills > systemstandard.**
 
 För **autonoma (T3) körningar** finns två roller som gör hands-off säkert:
 **preference-oracle** svarar på återkommande lågrisk-frågor åt mig (utifrån
 `preferences.md`) och eskalerar resten; **goal-watcher** vakar på att arbetet inte
 driver från specen. Agenternas arbetsroll (`coder`, `researcher`, `designer` osv.) och
-kapacitetsnivå (`fast`, `standard`, `deep`) routas separat till modeller för respektive
-harness. `safety-policy.json` är den enda maskinläsbara auktoriteten för vilka
+kapacitetsnivå (`fast`, `standard`, `deep`) väljs vid orkestreringsgränsen. Orca eller
+en annan orchestrator äger uppdelning, worktrees och schemaläggning;
+`model-routing.json` äger modelltabellen; harness-adaptern binder modellen vid spawn.
+`safety-policy.json` är den enda maskinläsbara auktoriteten för vilka
 operationer och exekveringsprofiler som är tillåtna; modellval och preferensbeslut kan
-inte utöka mandatet. Se "One authority for safety and autonomy" i `AGENTS.md`.
+inte utöka mandatet. Se "Keep authority separate from capability" i `AGENTS.md`.
 
 ## En sanningskälla
 
-`AGENTS.md` är hela innehållet. Alla harness pekas mot den:
+`AGENTS.md` är den lilla, stabila defaultpolicyn. Procedurer och volatila bindningar
+laddas vid behov från skills respektive register. Alla harness pekas mot samma policy:
 
 | Harness | Global fil | Kopplas till |
 |---------|-----------|--------------|
@@ -43,14 +46,15 @@ lokala modeller lever i `pi/` — se `pi/README.md`.
 ```sh
 ./install.sh --dry-run        # se vad som händer, ändrar inget
 ./install.sh                  # säker standardprofil; filer backas upp till .bak-<datum>
-./install.sh --no-bootstrap   # bara symlänkar/hook — installera inga externa verktyg
+./install.sh --no-bootstrap   # bara konfiguration — installera inga externa verktyg
 ./install.sh --auto-approve   # explicit opt-in; kräver grönt agent-safety doctor
 ```
 
-Scriptet symlinkar instruktionsfilerna, lägger skills i `~/.claude/skills/` och
-`~/.codex/skills/`, fogar in router- och katastrofhookarna i
-`~/.claude/settings.json` (kräver `jq`, annars skrivs manuell instruktion ut), och
-länkar den repoägda Pi-konfigurationen till `~/.pi/agent/`. Det länkar också
+Scriptet symlinkar instruktionsfilerna, lägger skills i `~/.claude/skills/`,
+`~/.codex/skills/` och `~/.hermes/skills/`, tar bort den pensionerade router-hooken
+från `~/.claude/settings.json` (med `jq`; annars skrivs en manuell instruktion ut),
+installerar katastrofhooken och länkar den repoägda Pi-konfigurationen till
+`~/.pi/agent/`. Det länkar också
 `model-routing.json` och `safety-policy.json` till `~/.config/agent-config/` samt
 installerar `agent-model-route` och `agent-safety` i `~/.local/bin/`. Starta om
 agenten efteråt.
@@ -135,7 +139,7 @@ får aktiveras.
 
 ## Innehåll
 
-- `AGENTS.md` — sanningskälla (router + kontrollant + autonomt läge + agent-routing).
+- `AGENTS.md` — liten sanningskälla för stabil defaultpolicy och pekare till on-demand-procedurer.
 - `model-routing.json` — provider-oberoende roller, tiers, presets och
   harness-bindningar.
 - `safety-policy.json` — kanoniska operationsbeslut och exekveringsprofiler.
@@ -147,15 +151,14 @@ får aktiveras.
   inte vill symlinka.
 - `preferences.md` — mina stående preferenser; preference-oracle svarar utifrån denna. Fyll i den.
 - `skills/complexity-router/SKILL.md` — router som riktig skill där harnesset stödjer det.
+- `skills/model-routing/SKILL.md` — roll/tier-policy och ansvarsfördelning vid dispatch/spawn.
 - `skills/goal-watcher/SKILL.md` — drift-väktare för autonoma körningar.
 - `skills/preference-oracle/SKILL.md` — svarar på lågrisk-frågor åt mig, eskalerar resten.
 - `skills/web-research-fallback/SKILL.md` — stoppar gissningar och söker auktoritativa källor när lokal kontext inte räcker.
-- `hooks/router-reminder.sh` — UserPromptSubmit-hook, det deterministiska lagret som
-  injicerar router-direktivet varje tur (bara Claude Code).
 - `hooks/deny-dangerous.sh` och `hooks/dangerous-patterns.txt` — tunn PreToolUse-adapter
   och testad klassificering av katastrofala shellkommandon.
 - `hooks/settings-snippet.json` — hook-config att klistra in manuellt vid behov.
-- `install.sh` — symlinkar instruktionsfiler + alla skills, hooken, samt Pi-configen;
+- `install.sh` — symlinkar instruktionsfiler + alla skills, säkerhetshooken och Pi-configen;
   bootstrappar Node/Pi och installerar beroenden för Pi-extensionerna.
 - `uninstall.sh` — tar bort repo-kopplingar och kan återställa agenternas
   permission-profiler till säkrare defaults.
@@ -164,18 +167,16 @@ får aktiveras.
 
 ## Lager av styrka
 
-1. **AGENTS.md** (portabelt) — funkar i alla harness, sanktionerad override via prioritet.
-2. **complexity-router-skill** (Claude Code/Codex/Pi där registrerat) — triggar automatiskt via sin description.
-3. **safety authority** — deterministiska operationsbeslut och permissionsprofiler.
-4. **hooks/adapters** — verkställer routerpåminnelse och katastrofdeny där harnesset
-   exponerar ett verifierat hookläge.
-
-För Gemini lever router-logiken inline i `AGENTS.md`. Hooken är ett
-Claude-Code-specifikt tillägg.
+1. **AGENTS.md** (portabelt) — minimal, stabil policy i alla harness.
+2. **skills** — `complexity-router`, `model-routing` och övriga procedurer laddas vid behov.
+3. **register** — provider- och modellbindningar hålls utanför promptpolicyn.
+4. **harness/Orca-adaptrar** — verkställer routing vid dispatch/spawn.
+5. **safety authority + hooks** — deterministiska operationsbeslut och katastrofdeny
+   där harnesset exponerar ett verifierat hookläge.
 
 ## Brasklapp
 
-Safety-policyn, sandboxen och hooken ger mekaniska lager, men de täcker inte alla
+Safety-policyn, sandboxen och säkerhetshooken ger mekaniska lager, men de täcker inte alla
 verktygsytor. Instruktioner behövs fortfarande för MCP/API/browser-operationer och andra
 harnesses som saknar verifierad pre-execution-adapter. Kör `agent-safety doctor` för att
 se exakt vad den installerade profilen kan bevisa.
