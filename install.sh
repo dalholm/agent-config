@@ -195,21 +195,6 @@ say "Hermes skills:"
 link_skills_to "$HOME/.hermes/skills" "$REPO/skills"
 say ""
 
-say "Hermes development coordinator:"
-HERMES_COORDINATOR_HOME="$(node "$REPO/scripts/resolve-hermes-home.mjs")"
-HERMES_COORDINATOR_SOUL="$HERMES_COORDINATOR_HOME/SOUL.md"
-HERMES_COORDINATOR_BLOCK="$REPO/hermes/coordinator-soul.md"
-link_skills_to "$HERMES_COORDINATOR_HOME/skills" "$REPO/skills"
-HERMES_SOUL_ARGS=(
-  --action install
-  --soul "$HERMES_COORDINATOR_SOUL"
-  --block "$HERMES_COORDINATOR_BLOCK"
-  --stamp "$STAMP"
-)
-[ "$DRY_RUN" = 1 ] && HERMES_SOUL_ARGS+=(--dry-run)
-node "$REPO/scripts/manage-hermes-soul.mjs" "${HERMES_SOUL_ARGS[@]}"
-say ""
-
 say "Retired per-prompt workflow router:"
 ROUTER_HOOK="$REPO/hooks/router-reminder.sh"
 SETTINGS="$HOME/.claude/settings.json"
@@ -418,6 +403,21 @@ if [ "$PERMISSION_PROFILE" = "auto-approve" ] && [ "$DRY_RUN" = 0 ]; then
   node "$REPO/scripts/agent-safety.mjs" doctor --profile auto-approve
   say ""
 fi
+
+say "Hermes development coordinator:"
+HERMES_COORDINATOR_HOME="$(node "$REPO/scripts/resolve-hermes-home.mjs")"
+HERMES_COORDINATOR_SOUL="$HERMES_COORDINATOR_HOME/SOUL.md"
+HERMES_COORDINATOR_BLOCK="$REPO/hermes/coordinator-soul.md"
+link_skills_to "$HERMES_COORDINATOR_HOME/skills" "$REPO/skills"
+HERMES_SOUL_ARGS=(
+  --action install
+  --soul "$HERMES_COORDINATOR_SOUL"
+  --block "$HERMES_COORDINATOR_BLOCK"
+  --stamp "$STAMP"
+)
+[ "$DRY_RUN" = 1 ] && HERMES_SOUL_ARGS+=(--dry-run)
+node "$REPO/scripts/manage-hermes-soul.mjs" "${HERMES_SOUL_ARGS[@]}"
+say ""
 
 say "Done. Restart your agent so it re-reads global config."
 say "Pi keeps auth, sessions, and other runtime state under ~/.pi/agent."

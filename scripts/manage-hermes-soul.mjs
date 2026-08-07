@@ -48,7 +48,10 @@ function findBlocks(content) {
 
 function installBlock(content, block) {
   const blocks = findBlocks(content);
-  if (blocks.length === 0) return content + block;
+  if (blocks.length === 0) {
+    const separator = content.length > 0 && !content.endsWith("\n") ? "\n" : "";
+    return content + separator + block;
+  }
 
   let result = content.slice(0, blocks[0].start) + block;
   let cursor = blocks[0].end;
@@ -80,11 +83,19 @@ function nextBackupPath(soulPath, stamp) {
   return `${base}-${suffix}`;
 }
 
+function replaceFile(filePath, content, mode) {
+  const temporaryPath = `${filePath}.tmp-${process.pid}`;
+  const options = mode === undefined ? { flag: "wx" } : { flag: "wx", mode };
+  fs.writeFileSync(temporaryPath, content, options);
+  fs.renameSync(temporaryPath, filePath);
+}
+
 const action = valueAfter("--action");
 const soulPath = path.resolve(valueAfter("--soul"));
 const dryRun = process.argv.includes("--dry-run");
 const exists = fs.existsSync(soulPath);
 const current = exists ? fs.readFileSync(soulPath, "utf8") : "";
+const mode = exists ? fs.statSync(soulPath).mode & 0o7777 : undefined;
 
 if (action === "remove") {
   if (!exists) {
@@ -102,9 +113,7 @@ if (action === "remove") {
     process.exit(0);
   }
 
-  const temporaryPath = `${soulPath}.tmp-${process.pid}`;
-  fs.writeFileSync(temporaryPath, next, { flag: "wx" });
-  fs.renameSync(temporaryPath, soulPath);
+  replaceFile(soulPath, next, mode);
   process.stdout.write(`  removed managed coordinator activation: ${soulPath}\n`);
   process.exit(0);
 }
@@ -145,7 +154,5 @@ if (exists) {
   process.stdout.write(`  backed up existing: ${soulPath} -> ${backupPath}\n`);
 }
 
-const temporaryPath = `${soulPath}.tmp-${process.pid}`;
-fs.writeFileSync(temporaryPath, next, { flag: "wx" });
-fs.renameSync(temporaryPath, soulPath);
+replaceFile(soulPath, next, mode);
 process.stdout.write(`  installed coordinator activation: ${soulPath}\n`);

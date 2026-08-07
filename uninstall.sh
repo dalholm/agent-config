@@ -29,8 +29,6 @@ done
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$REPO/hooks/router-reminder.sh"
 GUARD_HOOK="$REPO/hooks/deny-dangerous.sh"
-HERMES_COORDINATOR_HOME="$(node "$REPO/scripts/resolve-hermes-home.mjs")"
-HERMES_COORDINATOR_SOUL="$HERMES_COORDINATOR_HOME/SOUL.md"
 
 say() { printf '%s\n' "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -57,6 +55,39 @@ run() {
   else
     eval "$*"
   fi
+}
+
+HERMES_COORDINATOR_HOMES=()
+add_hermes_coordinator_home() {
+  local candidate="$1" resolved existing
+  if ! resolved="$(
+    HOME="$HOME" HERMES_HOME="$candidate" \
+      node "$REPO/scripts/resolve-hermes-home.mjs" 2>/dev/null
+  )"; then
+    say "  keep (Hermes home is unavailable or unsafe): $candidate"
+    return 0
+  fi
+  if [ "${#HERMES_COORDINATOR_HOMES[@]}" -gt 0 ]; then
+    for existing in "${HERMES_COORDINATOR_HOMES[@]}"; do
+      [ "$existing" = "$resolved" ] && return 0
+    done
+  fi
+  HERMES_COORDINATOR_HOMES+=("$resolved")
+}
+
+collect_hermes_coordinator_homes() {
+  local candidate
+  if ! have node; then
+    say "  keep (node unavailable; cannot validate Hermes homes)"
+    return 0
+  fi
+  if [ -n "${HERMES_HOME:-}" ]; then
+    add_hermes_coordinator_home "$HERMES_HOME"
+  fi
+  for candidate in "$HOME/.hermes" "$HOME/.hermes/profiles"/*; do
+    [ -d "$candidate" ] || continue
+    add_hermes_coordinator_home "$candidate"
+  done
 }
 
 # Resolve the safe state before removing any enforcement. If the authority cannot be
@@ -140,9 +171,16 @@ remove_repo_symlink "$HOME/.local/bin/agent-safety"
 say ""
 
 say "Hermes development coordinator:"
-HERMES_SOUL_ARGS=(--action remove --soul "$HERMES_COORDINATOR_SOUL")
-[ "$DRY_RUN" = 1 ] && HERMES_SOUL_ARGS+=(--dry-run)
-node "$REPO/scripts/manage-hermes-soul.mjs" "${HERMES_SOUL_ARGS[@]}"
+collect_hermes_coordinator_homes
+if [ "${#HERMES_COORDINATOR_HOMES[@]}" -gt 0 ]; then
+  for coordinator_home in "${HERMES_COORDINATOR_HOMES[@]}"; do
+    HERMES_SOUL_ARGS=(--action remove --soul "$coordinator_home/SOUL.md")
+    [ "$DRY_RUN" = 1 ] && HERMES_SOUL_ARGS+=(--dry-run)
+    if ! node "$REPO/scripts/manage-hermes-soul.mjs" "${HERMES_SOUL_ARGS[@]}"; then
+      say "  keep (could not safely update coordinator SOUL): $coordinator_home/SOUL.md"
+    fi
+  done
+fi
 say ""
 
 say "Skill symlinks:"
@@ -152,7 +190,11 @@ for skill in "$REPO"/skills/*/; do
   remove_repo_symlink "$HOME/.claude/skills/$name"
   remove_repo_symlink "$HOME/.codex/skills/$name"
   remove_repo_symlink "$HOME/.hermes/skills/$name"
-  remove_repo_symlink "$HERMES_COORDINATOR_HOME/skills/$name"
+  if [ "${#HERMES_COORDINATOR_HOMES[@]}" -gt 0 ]; then
+    for coordinator_home in "${HERMES_COORDINATOR_HOMES[@]}"; do
+      remove_repo_symlink "$coordinator_home/skills/$name"
+    done
+  fi
 done
 say ""
 

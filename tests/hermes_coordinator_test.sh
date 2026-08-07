@@ -86,6 +86,35 @@ set -e
 test ! -e "$outside_target/SOUL.md"
 rm -rf "$outside_home" "$outside_target"
 
+no_newline_home="$(mktemp -d)"
+mkdir -p "$no_newline_home/.hermes/profiles/cloud"
+printf 'cloud\n' > "$no_newline_home/.hermes/active_profile"
+printf 'Original personality.' > "$no_newline_home/.hermes/profiles/cloud/SOUL.md"
+chmod 600 "$no_newline_home/.hermes/profiles/cloud/SOUL.md"
+
+HOME="$no_newline_home" "$repo/install.sh" --no-bootstrap >/dev/null
+
+node -e '
+const fs = require("node:fs");
+const mode = fs.statSync(process.argv[1]).mode & 0o777;
+if (mode !== 0o600) throw new Error(`expected mode 0600, got ${mode.toString(8)}`);
+' "$no_newline_home/.hermes/profiles/cloud/SOUL.md"
+
+{
+  printf 'Original personality.\n'
+  cat "$repo/hermes/coordinator-soul.md"
+} > "$no_newline_home/soul-expected"
+cmp -s \
+  "$no_newline_home/soul-expected" \
+  "$no_newline_home/.hermes/profiles/cloud/SOUL.md"
+HOME="$no_newline_home" "$repo/uninstall.sh" --keep-permissions >/dev/null
+node -e '
+const fs = require("node:fs");
+const mode = fs.statSync(process.argv[1]).mode & 0o777;
+if (mode !== 0o600) throw new Error(`expected mode 0600, got ${mode.toString(8)}`);
+' "$no_newline_home/.hermes/profiles/cloud/SOUL.md"
+rm -rf "$no_newline_home"
+
 replacement_home="$(mktemp -d)"
 mkdir -p "$replacement_home/.hermes/profiles/cloud"
 printf 'cloud\n' > "$replacement_home/.hermes/active_profile"
@@ -134,3 +163,65 @@ test ! -e "$replacement_home/.hermes/skills/orca-development-orchestrator"
 [ "$(find "$replacement_coordinator" -maxdepth 1 -name 'SOUL.md.bak-*' | wc -l | tr -d ' ')" -eq "$replacement_backup_count" ]
 
 rm -rf "$replacement_home"
+
+changed_profile_home="$(mktemp -d)"
+mkdir -p \
+  "$changed_profile_home/.hermes/profiles/cloud" \
+  "$changed_profile_home/.hermes/profiles/coder"
+printf 'Cloud personality.\n' > "$changed_profile_home/.hermes/profiles/cloud/SOUL.md"
+printf 'Coder personality.\n' > "$changed_profile_home/.hermes/profiles/coder/SOUL.md"
+printf 'cloud\n' > "$changed_profile_home/.hermes/active_profile"
+HOME="$changed_profile_home" "$repo/install.sh" --no-bootstrap >/dev/null
+printf 'coder\n' > "$changed_profile_home/.hermes/active_profile"
+HOME="$changed_profile_home" "$repo/install.sh" --no-bootstrap >/dev/null
+
+ln -s /tmp "$changed_profile_home/.hermes/profiles/cloud/skills/unrelated-skill"
+ln -s /tmp "$changed_profile_home/.hermes/profiles/coder/skills/unrelated-skill"
+printf 'missing-profile\n' > "$changed_profile_home/.hermes/active_profile"
+HOME="$changed_profile_home" "$repo/uninstall.sh" --keep-permissions >/dev/null
+
+printf 'Cloud personality.\n' > "$changed_profile_home/cloud-expected"
+printf 'Coder personality.\n' > "$changed_profile_home/coder-expected"
+cmp -s "$changed_profile_home/cloud-expected" \
+  "$changed_profile_home/.hermes/profiles/cloud/SOUL.md"
+cmp -s "$changed_profile_home/coder-expected" \
+  "$changed_profile_home/.hermes/profiles/coder/SOUL.md"
+test ! -e "$changed_profile_home/.hermes/profiles/cloud/skills/orca-development-orchestrator"
+test ! -e "$changed_profile_home/.hermes/profiles/coder/skills/orca-development-orchestrator"
+test -L "$changed_profile_home/.hermes/profiles/cloud/skills/unrelated-skill"
+test -L "$changed_profile_home/.hermes/profiles/coder/skills/unrelated-skill"
+rm -rf "$changed_profile_home"
+
+malformed_uninstall_home="$(mktemp -d)"
+mkdir -p \
+  "$malformed_uninstall_home/.hermes/profiles/cloud" \
+  "$malformed_uninstall_home/.hermes/profiles/coder"
+printf 'Cloud personality.\n' > "$malformed_uninstall_home/.hermes/profiles/cloud/SOUL.md"
+printf 'Coder personality.\n' > "$malformed_uninstall_home/.hermes/profiles/coder/SOUL.md"
+printf 'cloud\n' > "$malformed_uninstall_home/.hermes/active_profile"
+HOME="$malformed_uninstall_home" "$repo/install.sh" --no-bootstrap >/dev/null
+printf 'coder\n' > "$malformed_uninstall_home/.hermes/active_profile"
+HOME="$malformed_uninstall_home" "$repo/install.sh" --no-bootstrap >/dev/null
+
+printf '%s\n' \
+  'Cloud personality.' \
+  '<!-- agent-config:hermes-orca-coordinator:start -->' \
+  'Unclosed managed block.' \
+  > "$malformed_uninstall_home/.hermes/profiles/cloud/SOUL.md"
+cp "$malformed_uninstall_home/.hermes/profiles/cloud/SOUL.md" \
+  "$malformed_uninstall_home/malformed-before"
+ln -s /tmp "$malformed_uninstall_home/.hermes/profiles/cloud/skills/unrelated-skill"
+
+HOME="$malformed_uninstall_home" \
+  "$repo/uninstall.sh" --keep-permissions >/dev/null 2>&1
+
+cmp -s "$malformed_uninstall_home/malformed-before" \
+  "$malformed_uninstall_home/.hermes/profiles/cloud/SOUL.md"
+printf 'Coder personality.\n' > "$malformed_uninstall_home/coder-expected"
+cmp -s "$malformed_uninstall_home/coder-expected" \
+  "$malformed_uninstall_home/.hermes/profiles/coder/SOUL.md"
+test ! -e "$malformed_uninstall_home/.hermes/profiles/cloud/skills/orca-development-orchestrator"
+test ! -e "$malformed_uninstall_home/.hermes/profiles/coder/skills/orca-development-orchestrator"
+test -L "$malformed_uninstall_home/.hermes/profiles/cloud/skills/unrelated-skill"
+test ! -e "$malformed_uninstall_home/.hermes/skills/orca-development-orchestrator"
+rm -rf "$malformed_uninstall_home"
