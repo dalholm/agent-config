@@ -29,6 +29,8 @@ done
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$REPO/hooks/router-reminder.sh"
 GUARD_HOOK="$REPO/hooks/deny-dangerous.sh"
+HERMES_COORDINATOR_HOME="$(node "$REPO/scripts/resolve-hermes-home.mjs")"
+HERMES_COORDINATOR_SOUL="$HERMES_COORDINATOR_HOME/SOUL.md"
 
 say() { printf '%s\n' "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -137,6 +139,12 @@ remove_repo_symlink "$HOME/.config/agent-config/safety-policy.json"
 remove_repo_symlink "$HOME/.local/bin/agent-safety"
 say ""
 
+say "Hermes development coordinator:"
+HERMES_SOUL_ARGS=(--action remove --soul "$HERMES_COORDINATOR_SOUL")
+[ "$DRY_RUN" = 1 ] && HERMES_SOUL_ARGS+=(--dry-run)
+node "$REPO/scripts/manage-hermes-soul.mjs" "${HERMES_SOUL_ARGS[@]}"
+say ""
+
 say "Skill symlinks:"
 for skill in "$REPO"/skills/*/; do
   [ -d "$skill" ] || continue
@@ -144,6 +152,7 @@ for skill in "$REPO"/skills/*/; do
   remove_repo_symlink "$HOME/.claude/skills/$name"
   remove_repo_symlink "$HOME/.codex/skills/$name"
   remove_repo_symlink "$HOME/.hermes/skills/$name"
+  remove_repo_symlink "$HERMES_COORDINATOR_HOME/skills/$name"
 done
 say ""
 

@@ -63,6 +63,29 @@ Det **bootstrappar** också verktygen configen förutsätter (om de saknas): ins
 Node/npm (via Homebrew), Pi (via `pi.dev/install.sh`) och Node-beroendena för våra
 Pi-extensions. Stäng av med `--no-bootstrap`.
 
+### Hermes som utvecklingskoordinator
+
+Hermes äger koordineringen av utvecklingsuppdrag men inte källkodsarbetet. Den
+repoägda skillen `orca-development-orchestrator` instruerar Hermes att samla
+kontrollplanskontext, preflighta Orca och safety-policyn, skicka avgränsade
+worker-kontrakt och verifiera test-, review- och QA-evidens. Pi, Codex eller Claude
+utför undersökning, design, implementation, felsökning, test, review och manuell QA i
+Orca-ägda worktrees. Rena kunskapsfrågor besvaras fortfarande direkt.
+
+Installern behåller kompatibilitetslänkarna i `~/.hermes/skills/` och länkar dessutom
+alla delade skills i den aktiva koordinatorprofilen. Målet väljs i denna ordning:
+
+1. `HERMES_HOME`, om variabeln är satt till en katalog under användarens hemkatalog.
+2. `~/.hermes/profiles/{active-profile}`, om `~/.hermes/active_profile` pekar ut en
+   befintlig profilkatalog.
+3. `~/.hermes` som fallback.
+
+Endast den valda profilen får det marköravgränsade, repoägda koordinationsblocket i
+`SOUL.md`. Befintlig personlighet behålls. En tidsstämplad `SOUL.md.bak-*` skapas bara
+när en befintlig fil faktiskt behöver ändras; en identisk ominstallation skapar ingen
+backup. `--dry-run` visar både profilmål, skill-länkar, backup och SOUL-merge utan att
+ändra dem.
+
 ## Avinstallera
 
 ```sh
@@ -72,9 +95,10 @@ Pi-extensions. Stäng av med `--no-bootstrap`.
 ```
 
 Avinstallern är konservativ: den tar bort symlänkar/config-rader som pekar på detta
-repo och återställer permissiva agentinställningar till säkrare defaults. Den raderar
-inte repot, Pi-autentisering, sessionshistorik, backupfiler eller externa verktyg som
-Node/Pi.
+repo, tar bort endast det marköravgränsade koordinatorblocket ur den valda profilens
+`SOUL.md` och återställer permissiva agentinställningar till säkrare defaults. All
+annan Hermes-personlighet och alla backupfiler behålls. Den raderar inte repot,
+Pi-autentisering, sessionshistorik eller externa verktyg som Node/Pi.
 
 Repoet innehåller fokuserade skills för bland annat TDD, implementation, diagnostik,
 prototyper, grillning, domänmodellering, PRD:er, issues, review och QA. Installern
@@ -150,6 +174,10 @@ får aktiveras.
 - `CLAUDE.md`, `GEMINI.md` — tunna pekare (`@./AGENTS.md`) för manuell kopiering om du
   inte vill symlinka.
 - `preferences.md` — mina stående preferenser; preference-oracle svarar utifrån denna. Fyll i den.
+- `hermes/coordinator-soul.md` — det marköravgränsade aktiveringsblocket för den
+  aktiva Hermes-koordinatorprofilen.
+- `skills/orca-development-orchestrator/SKILL.md` — Hermes-specifik procedur för
+  delegerad utveckling genom Orca.
 - `skills/complexity-router/SKILL.md` — router som riktig skill där harnesset stödjer det.
 - `skills/model-routing/SKILL.md` — roll/tier-policy och ansvarsfördelning vid dispatch/spawn.
 - `skills/goal-watcher/SKILL.md` — drift-väktare för autonoma körningar.
