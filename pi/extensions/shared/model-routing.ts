@@ -5,6 +5,7 @@ import {
   MODEL_ROUTING_TIERS,
   ModelRoutingError,
   modelRoutingRegistry,
+  resolveDispatchRoute,
   resolveModelRoute,
   type AgentRole,
   type AgentTier,
@@ -28,6 +29,13 @@ export {
 export const ROUTED_REASONING_EFFORTS = MODEL_ROUTING_REASONING_EFFORTS;
 export type RoutedReasoningEffort = ModelRoutingReasoningEffort;
 
+export function providerFamilyForProvider(
+  provider: string | undefined,
+): string {
+  if (!provider) return "unknown";
+  return modelRoutingRegistry.providers[provider]?.family ?? "unknown";
+}
+
 export interface BindModelRouteOptions {
   readonly harness: ModelRoutingHarness;
   readonly role: AgentRole;
@@ -42,6 +50,7 @@ export interface BoundModelRoute {
   readonly role: AgentRole;
   readonly tier: AgentTier;
   readonly strategy: ModelRoutingStrategy;
+  readonly providerFamily: string;
   readonly provider?: string;
   readonly model?: string;
   readonly reasoningEffort?: RoutedReasoningEffort;
@@ -90,6 +99,15 @@ export function bindModelRoute(
   const model = options.model ?? route.model;
   const provider =
     options.model !== undefined ? options.provider : route.provider;
+  const modelHintProvider = options.model?.includes("/")
+    ? options.model.slice(0, options.model.indexOf("/"))
+    : undefined;
+  const providerFamily =
+    options.model !== undefined && route.strategy === "hybrid"
+      ? providerFamilyForProvider(options.provider ?? modelHintProvider)
+      : options.model !== undefined && options.provider !== undefined
+        ? providerFamilyForProvider(options.provider)
+        : route.providerFamily;
   const reasoningEffort = options.reasoningEffort ?? registryReasoning;
 
   return {
@@ -97,10 +115,32 @@ export function bindModelRoute(
     role: route.role,
     tier: route.tier,
     strategy: route.strategy,
+    providerFamily,
     ...(provider === undefined ? {} : { provider }),
     ...(model === undefined ? {} : { model }),
     ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
     modelSource,
     reasoningSource,
   };
+}
+
+export function assertIndependentReviewRoute(options: {
+  readonly harness: ModelRoutingHarness;
+  readonly role: AgentRole;
+  readonly tier: AgentTier;
+  readonly reviewOfHarness?: ModelRoutingHarness;
+  readonly reviewOfProviderFamily?: string;
+}): void {
+  if (options.role !== "reviewer") {
+    if (options.reviewOfHarness || options.reviewOfProviderFamily) {
+      throw new ModelRoutingError(
+        "review provenance is only valid for reviewer routes",
+      );
+    }
+    if (options.role === "scout" && options.harness !== "pi") {
+      throw new ModelRoutingError("scout routes must use the local Pi worker");
+    }
+    return;
+  }
+  resolveDispatchRoute(modelRoutingRegistry, options);
 }

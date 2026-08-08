@@ -59,12 +59,23 @@ function effort(value: unknown): RoutedReasoningEffort | undefined {
 export function bindWorkflowAgentRoute(
   input: WorkflowAgentRouteInput,
 ): BoundModelRoute {
+  const selectedRole = role(input.role);
+  if (selectedRole === "reviewer") {
+    throw new Error(
+      "independent review cannot run inside the author workflow; use subagent_spawn with review_of_harness",
+    );
+  }
+  if (selectedRole === "scout") {
+    throw new Error(
+      "local scout cannot run inside the parent workflow; use subagent_spawn with the Pi harness",
+    );
+  }
   const provider = optionalString(input.provider, "provider");
   const model = optionalString(input.model, "model");
   const reasoningEffort = effort(input.effort);
   return bindModelRoute({
     harness: "pi",
-    role: role(input.role),
+    role: selectedRole,
     tier: tier(input.tier),
     ...(provider === undefined ? {} : { provider }),
     ...(model === undefined ? {} : { model }),

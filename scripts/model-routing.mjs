@@ -61,16 +61,27 @@ function validateTarget(value, path) {
 
 export function validateModelRoutingRegistry(value) {
   const registry = record(value, "registry");
-  if (registry.schemaVersion !== 1) fail("schemaVersion must be 1");
+  if (registry.schemaVersion !== 2) fail("schemaVersion must be 2");
 
   const defaultRoute = record(registry.defaultRoute, "defaultRoute");
+  const providers = record(registry.providers, "providers");
   const roles = record(registry.roles, "roles");
   const tiers = record(registry.tiers, "tiers");
   const presets = record(registry.presets, "presets");
   const harnesses = record(registry.harnesses, "harnesses");
+  const dispatch = record(registry.dispatch, "dispatch");
   if (!Object.keys(roles).length) fail("roles must not be empty");
   if (!Object.keys(tiers).length) fail("tiers must not be empty");
   if (!Object.keys(harnesses).length) fail("harnesses must not be empty");
+  if (!Object.keys(providers).length) fail("providers must not be empty");
+
+  for (const [provider, config] of Object.entries(providers)) {
+    const entry = record(config, `providers.${provider}`);
+    string(entry.family, `providers.${provider}.family`);
+    if (typeof entry.local !== "boolean") {
+      fail(`providers.${provider}.local must be a boolean`);
+    }
+  }
 
   for (const [role, config] of Object.entries(roles)) {
     string(
@@ -104,8 +115,14 @@ export function validateModelRoutingRegistry(value) {
   for (const [harness, config] of Object.entries(harnesses)) {
     const entry = record(config, `harnesses.${harness}`);
     const strategy = string(entry.strategy, `harnesses.${harness}.strategy`);
-    if (!["explicit", "preset", "inherit"].includes(strategy)) {
+    if (!["explicit", "preset", "inherit", "hybrid"].includes(strategy)) {
       fail(`harnesses.${harness}.strategy is unknown`);
+    }
+    string(entry.providerFamily, `harnesses.${harness}.providerFamily`);
+    if (strategy === "hybrid" && entry.providerFamily !== "dynamic") {
+      fail(
+        `harnesses.${harness} strategy "hybrid" must use providerFamily "dynamic"`,
+      );
     }
     if (
       strategy === "inherit" &&
@@ -133,6 +150,13 @@ export function validateModelRoutingRegistry(value) {
       if (!tiers[tier])
         fail(`harnesses.${harness}.tiers references unknown tier "${tier}"`);
       validateTarget(target, `harnesses.${harness}.tiers.${tier}`);
+      validateHarnessTarget(
+        registry,
+        harness,
+        entry,
+        target,
+        `harnesses.${harness}.tiers.${tier}`,
+      );
     }
     const roleOverrides =
       entry.roleOverrides === undefined
@@ -154,6 +178,13 @@ export function validateModelRoutingRegistry(value) {
           target,
           `harnesses.${harness}.roleOverrides.${role}.${tier}`,
         );
+        validateHarnessTarget(
+          registry,
+          harness,
+          entry,
+          target,
+          `harnesses.${harness}.roleOverrides.${role}.${tier}`,
+        );
       }
     }
     const presetBindings =
@@ -166,10 +197,117 @@ export function validateModelRoutingRegistry(value) {
           `harnesses.${harness}.presetBindings references unknown preset "${preset}"`,
         );
       validateTarget(target, `harnesses.${harness}.presetBindings.${preset}`);
+      validateHarnessTarget(
+        registry,
+        harness,
+        entry,
+        target,
+        `harnesses.${harness}.presetBindings.${preset}`,
+      );
+    }
+  }
+
+  if (!Array.isArray(dispatch.automaticRoutes)) {
+    fail("dispatch.automaticRoutes must be an array");
+  }
+  const automaticKeys = new Set();
+  for (const [index, config] of dispatch.automaticRoutes.entries()) {
+    const entry = record(config, `dispatch.automaticRoutes.${index}`);
+    const role = string(entry.role, `dispatch.automaticRoutes.${index}.role`);
+    const tier = string(entry.tier, `dispatch.automaticRoutes.${index}.tier`);
+    const harness = string(
+      entry.harness,
+      `dispatch.automaticRoutes.${index}.harness`,
+    );
+    if (!roles[role])
+      fail(
+        `dispatch.automaticRoutes.${index} references unknown role "${role}"`,
+      );
+    if (!tiers[tier])
+      fail(
+        `dispatch.automaticRoutes.${index} references unknown tier "${tier}"`,
+      );
+    if (!harnesses[harness])
+      fail(
+        `dispatch.automaticRoutes.${index} references unknown harness "${harness}"`,
+      );
+    const key = `${role}/${tier}`;
+    if (automaticKeys.has(key)) fail(`duplicate automatic route "${key}"`);
+    automaticKeys.add(key);
+    const target =
+      harnesses[harness].roleOverrides?.[role]?.[tier] ??
+      harnesses[harness].tiers?.[tier];
+    if (!target)
+      fail(`automatic route "${key}" has no binding on harness "${harness}"`);
+    const provider = target.provider;
+    if (!provider || !providers[provider]?.local) {
+      fail(`automatic route "${key}" must resolve to a local provider`);
+    }
+  }
+
+  const independentReview = record(
+    dispatch.independentReview,
+    "dispatch.independentReview",
+  );
+  const reviewMap = record(
+    independentReview.byAuthorProviderFamily,
+    "dispatch.independentReview.byAuthorProviderFamily",
+  );
+  const knownFamilies = new Set(
+    Object.values(providers).map((provider) => provider.family),
+  );
+  for (const [authorFamily, reviewerHarnessValue] of Object.entries(
+    reviewMap,
+  )) {
+    const reviewerHarness = string(
+      reviewerHarnessValue,
+      `dispatch.independentReview.byAuthorProviderFamily.${authorFamily}`,
+    );
+    if (!knownFamilies.has(authorFamily))
+      fail(
+        `independent review references unknown provider family "${authorFamily}"`,
+      );
+    if (!harnesses[reviewerHarness])
+      fail(
+        `independent review references unknown reviewer harness "${reviewerHarness}"`,
+      );
+    if (harnesses[reviewerHarness].providerFamily === authorFamily) {
+      fail(
+        `independent review for provider family "${authorFamily}" must use a different provider family`,
+      );
+    }
+    const reviewTarget =
+      harnesses[reviewerHarness].roleOverrides?.reviewer?.deep ??
+      harnesses[reviewerHarness].tiers?.deep;
+    if (!reviewTarget)
+      fail(
+        `independent reviewer harness "${reviewerHarness}" has no deep binding`,
+      );
+    if (!reviewTarget.provider || providers[reviewTarget.provider]?.local) {
+      fail(
+        `independent reviewer harness "${reviewerHarness}" must use a frontier provider`,
+      );
     }
   }
 
   return registry;
+}
+
+function validateHarnessTarget(registry, harness, harnessConfig, target, path) {
+  const provider = target.provider;
+  if (!provider || !registry.providers[provider]) {
+    fail(`${path}.provider must reference a known provider`);
+  }
+  const providerConfig = registry.providers[provider];
+  if (harnessConfig.strategy === "hybrid" && !providerConfig.local) {
+    fail(`harnesses.${harness} strategy "hybrid" must use a local provider`);
+  }
+  if (
+    ["explicit", "preset"].includes(harnessConfig.strategy) &&
+    providerConfig.family !== harnessConfig.providerFamily
+  ) {
+    fail(`${path} must use provider family "${harnessConfig.providerFamily}"`);
+  }
 }
 
 export function loadModelRoutingRegistry(url = MODEL_ROUTING_REGISTRY_URL) {
@@ -229,7 +367,7 @@ export function resolveModelRoute(registry, options) {
       : undefined) ??
     harnessConfig.roleOverrides?.[role]?.[tier] ??
     harnessConfig.tiers?.[tier];
-  if (!target && harnessConfig.strategy !== "inherit") {
+  if (!target && !["inherit", "hybrid"].includes(harnessConfig.strategy)) {
     fail(`harness "${harness}" has no binding for tier "${tier}"`);
   }
 
@@ -239,6 +377,119 @@ export function resolveModelRoute(registry, options) {
     tier,
     harness,
     strategy: harnessConfig.strategy,
+    providerFamily: target?.provider
+      ? registry.providers[target.provider].family
+      : harnessConfig.providerFamily,
     ...(target ?? {}),
+  };
+}
+
+export function resolveDispatchRoute(registry, options) {
+  registry = validateModelRoutingRegistry(registry);
+  if (options.preset && (options.role || options.tier)) {
+    fail("--preset cannot be combined with --role or --tier");
+  }
+  const preset = options.preset ? registry.presets[options.preset] : undefined;
+  if (options.preset && !preset) fail(`unknown preset "${options.preset}"`);
+  const role = preset?.role ?? options.role ?? registry.defaultRoute.role;
+  const tier = preset?.tier ?? options.tier ?? registry.defaultRoute.tier;
+  if (!registry.roles[role]) fail(`unknown role "${role}"`);
+  if (!registry.tiers[tier]) fail(`unknown tier "${tier}"`);
+
+  if (role === "reviewer") {
+    if (tier !== "deep") fail("reviewer routes must use tier deep");
+    if (options.preset) fail("reviewer routes must not use presets");
+    if (!options.reviewOfHarness)
+      fail("reviewOfHarness is required for reviewer routes");
+    const authorConfig = registry.harnesses[options.reviewOfHarness];
+    if (!authorConfig) fail(`unknown harness "${options.reviewOfHarness}"`);
+    let authorProviderFamily = options.reviewOfProviderFamily;
+    if (["inherit", "hybrid"].includes(authorConfig.strategy)) {
+      if (!authorProviderFamily) {
+        fail(
+          `reviewOfProviderFamily is required when reviewing ${authorConfig.strategy} harness "${options.reviewOfHarness}"`,
+        );
+      }
+    } else if (
+      authorProviderFamily &&
+      authorProviderFamily !== authorConfig.providerFamily
+    ) {
+      fail(
+        `reviewOfProviderFamily "${authorProviderFamily}" does not match harness "${options.reviewOfHarness}"`,
+      );
+    } else {
+      authorProviderFamily = authorConfig.providerFamily;
+    }
+    const knownFamilies = new Set(
+      Object.values(registry.providers).map((provider) => provider.family),
+    );
+    if (!knownFamilies.has(authorProviderFamily)) {
+      fail(`unknown reviewOfProviderFamily "${authorProviderFamily}"`);
+    }
+    const reviewerHarness =
+      registry.dispatch.independentReview.byAuthorProviderFamily[
+        authorProviderFamily
+      ];
+    if (!reviewerHarness) {
+      fail(
+        `no independent review route for provider family "${authorProviderFamily}"`,
+      );
+    }
+    if (options.harness && options.harness !== reviewerHarness) {
+      fail(
+        `independent review of "${options.reviewOfHarness}" must use "${reviewerHarness}", not "${options.harness}"`,
+      );
+    }
+    const reviewRoute = resolveModelRoute(registry, {
+      harness: reviewerHarness,
+      role,
+      tier,
+    });
+    if (reviewRoute.providerFamily === authorProviderFamily) {
+      fail("independent review must use a different provider family");
+    }
+    return {
+      ...reviewRoute,
+      selection: "independent-review",
+      reviewOfHarness: options.reviewOfHarness,
+      reviewOfProviderFamily: authorProviderFamily,
+    };
+  }
+  if (options.reviewOfHarness || options.reviewOfProviderFamily) {
+    fail("review provenance is only valid for reviewer routes");
+  }
+
+  if (role === "scout" && options.harness && options.harness !== "pi") {
+    fail("scout routes must use the local Pi worker");
+  }
+
+  if (options.harness) {
+    return {
+      ...resolveModelRoute(
+        registry,
+        options.preset
+          ? { harness: options.harness, preset: options.preset }
+          : { harness: options.harness, role, tier },
+      ),
+      selection: "explicit",
+    };
+  }
+
+  const automatic = registry.dispatch.automaticRoutes.find(
+    (entry) => entry.role === role && entry.tier === tier,
+  );
+  if (!automatic) {
+    fail(
+      `--harness is required for ${role}/${tier}; no automatic route exists`,
+    );
+  }
+  return {
+    ...resolveModelRoute(registry, {
+      harness: automatic.harness,
+      role,
+      tier,
+      ...(options.preset ? { preset: options.preset } : {}),
+    }),
+    selection: "automatic",
   };
 }

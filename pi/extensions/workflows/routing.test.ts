@@ -17,6 +17,17 @@ test("workflow routes require an explicit logical role and tier", () => {
   );
 });
 
+test("in-process workflows reject reviewer routes that cannot be independent", () => {
+  assert.throws(
+    () => bindWorkflowAgentRoute({ role: "reviewer", tier: "deep" }),
+    /independent review.*subagent_spawn/i,
+  );
+  assert.throws(
+    () => bindWorkflowAgentRoute({ role: "scout", tier: "fast" }),
+    /local scout.*subagent_spawn/i,
+  );
+});
+
 test("workflow routes preserve Pi inheritance by default", () => {
   assert.deepEqual(
     bindWorkflowAgentRoute({ role: "researcher", tier: "standard" }),
@@ -24,7 +35,8 @@ test("workflow routes preserve Pi inheritance by default", () => {
       harness: "pi",
       role: "researcher",
       tier: "standard",
-      strategy: "inherit",
+      strategy: "hybrid",
+      providerFamily: "dynamic",
       modelSource: "inherit",
       reasoningSource: "inherit",
     },
@@ -34,17 +46,18 @@ test("workflow routes preserve Pi inheritance by default", () => {
 test("workflow model, provider, and effort overrides win", () => {
   assert.deepEqual(
     bindWorkflowAgentRoute({
-      role: "reviewer",
-      tier: "deep",
+      role: "coder",
+      tier: "standard",
       provider: "fixture",
       model: "review-model",
       effort: "minimal",
     }),
     {
       harness: "pi",
-      role: "reviewer",
-      tier: "deep",
-      strategy: "inherit",
+      role: "coder",
+      tier: "standard",
+      strategy: "hybrid",
+      providerFamily: "unknown",
       provider: "fixture",
       model: "review-model",
       reasoningEffort: "minimal",

@@ -47,6 +47,13 @@ user-owned instructions and operate within system, developer, and safety constra
 - The orchestrator owns execution concerns such as task splitting, dependencies,
   worktrees, retries, and parallelism. The harness adapter resolves and binds the model
   at the spawn boundary. Neither owns a duplicate model table.
+- Orca owns automatic worker selection. It routes eligible `scout/fast` and
+  `coder/fast` work to the registry's local worker unless capability, risk, or an
+  explicit user choice requires a frontier harness.
+- A reviewer must identify the author harness and, for hybrid or inherited authors,
+  the resolved author provider family. Review always uses `deep`, rejects model or
+  reasoning overrides, and resolves to a different provider family. A model or
+  provider never performs the final review of its own work.
 
 ## 5. Write code and documentation in English
 

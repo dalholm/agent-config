@@ -5,6 +5,14 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 test_home="$(mktemp -d)"
 trap 'rm -rf "$test_home"' EXIT
 
+coordinator_skill="$repo/skills/orca-development-orchestrator/SKILL.md"
+grep -Fq "Orca, not the generic worker adapter, owns automatic harness selection." \
+  "$coordinator_skill"
+grep -Fq 'Resolve `scout/fast` and `coder/fast` without a harness' \
+  "$coordinator_skill"
+grep -Fq 'The reviewer must differ from the author provider family' \
+  "$coordinator_skill"
+
 mkdir -p "$test_home/.hermes/profiles/cloud"
 printf 'cloud\n' > "$test_home/.hermes/active_profile"
 

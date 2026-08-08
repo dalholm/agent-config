@@ -291,6 +291,17 @@ export default function (pi: ExtensionAPI) {
       tier: StringEnum(MODEL_ROUTING_TIERS, {
         description: SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS.tier,
       }),
+      review_of_harness: Type.Optional(
+        StringEnum(BACKEND_NAMES, {
+          description: SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS.reviewOfHarness,
+        }),
+      ),
+      review_of_provider_family: Type.Optional(
+        Type.String({
+          description:
+            SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS.reviewOfProviderFamily,
+        }),
+      ),
       working_dir: Type.Optional(
         Type.String({
           description: SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS.workingDir,
@@ -325,6 +336,8 @@ export default function (pi: ExtensionAPI) {
           cwd,
           role: params.role,
           tier: params.tier,
+          reviewOfHarness: params.review_of_harness,
+          reviewOfProviderFamily: params.review_of_provider_family,
           model: params.model,
           reasoningEffort: params.reasoning_effort,
           parent: {
@@ -351,7 +364,7 @@ export default function (pi: ExtensionAPI) {
             text: buildSubagentSpawnResult({
               id: snap.id,
               title: snap.title,
-              harness,
+              harness: snap.backend,
               role: snap.route.role,
               tier: snap.route.tier,
               strategy: snap.route.strategy,

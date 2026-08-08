@@ -15,8 +15,57 @@ const route = routing.resolveModelRoute(routing.modelRoutingRegistry, {
   tier: "standard",
 });
 assert.equal(route.model, "gpt-5.6-sol");
+const localScout = routing.resolveDispatchRoute(routing.modelRoutingRegistry, {
+  role: "scout",
+  tier: "fast",
+});
+assert.equal(localScout.harness, "pi");
+assert.equal(localScout.provider, "omlx");
+assert.equal(localScout.model, "qwen3.6-35b-a3b-dflash");
+assert.equal(localScout.selection, "automatic");
 assert.throws(
-  () => routing.validateModelRoutingRegistry({ schemaVersion: 1 }),
+  () => routing.resolveDispatchRoute(routing.modelRoutingRegistry, {
+    harness: "codex",
+    role: "scout",
+    tier: "fast",
+  }),
+  /scout.*local Pi/i,
+);
+const codexReview = routing.resolveDispatchRoute(routing.modelRoutingRegistry, {
+  role: "reviewer",
+  tier: "deep",
+  reviewOfHarness: "codex",
+});
+assert.equal(codexReview.harness, "claude");
+assert.equal(codexReview.provider, "anthropic");
+assert.equal(codexReview.selection, "independent-review");
+assert.equal(codexReview.providerFamily, "anthropic");
+assert.throws(
+  () => routing.resolveDispatchRoute(routing.modelRoutingRegistry, {
+    role: "reviewer",
+    tier: "fast",
+    reviewOfHarness: "codex",
+  }),
+  /reviewer.*deep/i,
+);
+assert.throws(
+  () => routing.resolveDispatchRoute(routing.modelRoutingRegistry, {
+    harness: "codex",
+    role: "reviewer",
+    tier: "deep",
+    reviewOfHarness: "codex",
+  }),
+  /independent review.*claude/i,
+);
+assert.throws(
+  () => routing.resolveDispatchRoute(routing.modelRoutingRegistry, {
+    role: "reviewer",
+    tier: "deep",
+  }),
+  /reviewOfHarness.*required/,
+);
+assert.throws(
+  () => routing.validateModelRoutingRegistry({ schemaVersion: 2 }),
   /defaultRoute/,
 );
 const malformed = structuredClone(routing.modelRoutingRegistry);
@@ -26,6 +75,7 @@ assert.throws(
   /unsupported reasoning effort "limitless"/,
 );
 const unsafeInherit = structuredClone(routing.modelRoutingRegistry);
+unsafeInherit.harnesses.pi.strategy = "inherit";
 unsafeInherit.harnesses.pi.tiers = {
   standard: {
     provider: "paid-provider",
@@ -37,6 +87,45 @@ assert.throws(
   () => routing.validateModelRoutingRegistry(unsafeInherit),
   /inherit.*must not define explicit bindings/,
 );
+const unsafeHybrid = structuredClone(routing.modelRoutingRegistry);
+unsafeHybrid.harnesses.pi.roleOverrides.scout.fast = {
+  provider: "anthropic",
+  model: "haiku",
+};
+assert.throws(
+  () => routing.validateModelRoutingRegistry(unsafeHybrid),
+  /hybrid.*local provider/i,
+);
+const unsafeAutomatic = structuredClone(routing.modelRoutingRegistry);
+unsafeAutomatic.dispatch.automaticRoutes[0].harness = "codex";
+assert.throws(
+  () => routing.validateModelRoutingRegistry(unsafeAutomatic),
+  /automatic route.*local provider/i,
+);
+assert.throws(
+  () => routing.resolveDispatchRoute(routing.modelRoutingRegistry, {
+    role: "reviewer",
+    tier: "deep",
+    reviewOfHarness: "pi",
+  }),
+  /reviewOfProviderFamily.*required/i,
+);
+const localPiReview = routing.resolveDispatchRoute(routing.modelRoutingRegistry, {
+  role: "reviewer",
+  tier: "deep",
+  reviewOfHarness: "pi",
+  reviewOfProviderFamily: "local",
+});
+assert.equal(localPiReview.harness, "claude");
+assert.equal(localPiReview.providerFamily, "anthropic");
+const inheritedClaudePiReview = routing.resolveDispatchRoute(routing.modelRoutingRegistry, {
+  role: "reviewer",
+  tier: "deep",
+  reviewOfHarness: "pi",
+  reviewOfProviderFamily: "anthropic",
+});
+assert.equal(inheritedClaudePiReview.harness, "codex");
+assert.equal(inheritedClaudePiReview.providerFamily, "openai-codex");
 assert.throws(
   () => routing.resolveModelRoute(unsafeInherit, {
     harness: "pi",
@@ -140,6 +229,7 @@ const catalog = JSON.parse(process.argv[1]);
 for (const role of ["generalist", "researcher", "coder", "designer", "reviewer", "orchestrator"]) {
   if (!catalog.roles.includes(role)) throw new Error(`missing role ${role}`);
 }
+if (!catalog.roles.includes("scout")) throw new Error("missing role scout");
 for (const tier of ["fast", "standard", "deep"]) {
   if (!catalog.tiers.includes(tier)) throw new Error(`missing tier ${tier}`);
 }
@@ -152,8 +242,8 @@ for (const harness of ["claude", "codex", "gemini", "hermes", "opencode", "pi"])
 if (catalog.bindings.codex.tiers.standard.model !== "gpt-5.6-sol") {
   throw new Error("catalog does not expose Codex bindings");
 }
-if (catalog.bindings.pi.strategy !== "inherit") {
-  throw new Error("catalog does not expose inherit strategies");
+if (catalog.bindings.pi.strategy !== "hybrid") {
+  throw new Error("catalog does not expose hybrid local-worker strategy");
 }
 ' "$routing_catalog"
 
@@ -167,7 +257,7 @@ pi_route="$(
 
 node -e '
 const route = JSON.parse(process.argv[1]);
-if (route.strategy !== "inherit") throw new Error("Pi did not inherit safely");
+if (route.strategy !== "hybrid") throw new Error("Pi did not preserve hybrid fallback");
 if ("provider" in route || "model" in route) {
   throw new Error("Pi silently selected an explicit provider");
 }
@@ -203,3 +293,7 @@ assert_invalid_route 'unknown preset "oracle"' \
   --harness hermes --preset oracle
 assert_invalid_route 'harness "hermes" has no binding for tier "standard"' \
   --harness hermes --role researcher --tier standard
+assert_invalid_route 'review provenance is only valid for reviewer routes' \
+  --harness hermes --preset designer --review-of-harness codex
+assert_invalid_route 'reviewer routes must use tier deep' \
+  --role reviewer --tier fast --review-of-harness codex

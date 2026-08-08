@@ -35,6 +35,7 @@ import type {
 } from "../domain.ts";
 import { SendError, SpawnError } from "../domain.ts";
 import { createToolCallTimeoutGuard } from "../../../shared/tool-call-timeout.ts";
+import { toolPolicyForRole } from "../tool-policy.ts";
 
 const CHILD_SHUTDOWN_TIMEOUT_MS = 5_000;
 
@@ -299,6 +300,13 @@ const makePiSession = (
         // the scope finalizer that owns cleanup is only registered later.
         try {
           await session.bindExtensions({ mode: "print" });
+          const toolPolicy = toolPolicyForRole(
+            task.role,
+            session.getActiveToolNames(),
+          );
+          if (toolPolicy.kind === "allowlist") {
+            session.setActiveToolsByName([...toolPolicy.toolNames]);
+          }
         } catch (error) {
           await shutdownAndDisposeChildSession(session);
           throw error;

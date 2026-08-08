@@ -11,9 +11,9 @@ Each subagent is headless, has its own context window, cannot see the parent con
 
 **Harness:** `pi`
 **Prompt nicknames:** “pi”, “pi agent”, “pi subagent”
-**Best default:** Use when the user does not request another harness. Supply `role`
-and `tier`; Pi inherits the parent model and thinking level unless the user explicitly
-overrides `model` or `reasoning_effort`.
+**Best default:** Use the harness selected by the caller or Orca. `scout/fast` and
+`coder/fast` bind to local Qwen when dispatched through Pi. Pi inherits the parent
+model and thinking level when no local binding or explicit override applies.
 
 Do not use models from the Anthropic provider even if one appears in the model list.
 
@@ -48,9 +48,13 @@ Requires the Codex CLI to be installed and authenticated.
 
 Choose the child's role and tier before spawning it. Call `subagent_spawn` with a
 complete prompt, short `name`, chosen `harness`, `role`, `tier`, and optional
-`working_dir`. Use `model` or `reasoning_effort` only for an explicit user override;
-those values take precedence over the canonical binding. At most four subagents run
-concurrently.
+`working_dir`. Automatic harness selection belongs to Orca, not this generic tool.
+Every reviewer must include `review_of_harness`. When the author ran through Pi or
+another hybrid/inherited harness, also include the resolved
+`review_of_provider_family`. The spawn boundary rejects review by the author provider
+family. Reviewer model and reasoning overrides are rejected. For other roles, use
+`model` or `reasoning_effort` only for an explicit user override. At most four
+subagents run concurrently.
 
 - `subagent_check({ id })`: peek without blocking.
 - `subagent_list()`: list all runs.

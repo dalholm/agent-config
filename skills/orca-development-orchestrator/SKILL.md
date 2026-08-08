@@ -50,3 +50,24 @@ manual QA. Do not replace a worker with Hermes source reading or editing.
 9. Report what changed, verification evidence, review and QA results, remaining risks,
    commit references, and any safe user-owned next step. Completion means the report
    distinguishes verified results from pending installation or deployment.
+
+## Worker dispatch policy
+
+Orca, not the generic worker adapter, owns automatic harness selection.
+
+- Resolve `scout/fast` and `coder/fast` without a harness through
+  `agent-model-route`. When the registry returns Pi with the local Qwen binding,
+  dispatch that explicit harness/model route to the worker adapter.
+- Give `scout/fast` read-only contracts for file discovery, code mapping, convention
+  discovery, and test inventory. Its Pi adapter exposes only `read`, `rg`, and `fd`.
+- Give `coder/fast` only small, explicit file and command scopes. Escalate to a
+  frontier `coder/standard` worker when the task crosses its file boundary, needs a
+  design decision, touches sensitive operations, or repeats a failure.
+- An explicit user model choice, a capability requirement, or a risk escalation
+  overrides the automatic local route. Record the reason with the dispatch.
+
+For review, record the author harness and resolved provider family from the completed
+worker route. Resolve `reviewer/deep` with `--review-of-harness <author-harness>` and,
+for hybrid or inherited authors, `--review-of-provider-family <family>`. Dispatch the
+returned frontier harness. The reviewer must differ from the author provider family;
+a worker's own self-review or a local preliminary check never satisfies final review.

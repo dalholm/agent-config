@@ -2,7 +2,7 @@
 
 import {
   modelRoutingRegistry,
-  resolveModelRoute,
+  resolveDispatchRoute,
   routingCatalog,
 } from "./model-routing.mjs";
 
@@ -57,6 +57,8 @@ function formatRoute(route, format) {
       `Harness: ${route.harness}`,
       `Target: ${target}`,
       `Reasoning: ${route.reasoning ?? "inherit"}`,
+      ...(route.selection ? [`Selection: ${route.selection}`] : []),
+      ...(route.reviewOfHarness ? [`Review of: ${route.reviewOfHarness}`] : []),
     ].join("\n") + "\n"
   );
 }
@@ -85,7 +87,11 @@ if (options.list) {
 }
 
 try {
-  const route = resolveModelRoute(modelRoutingRegistry, options);
+  const route = resolveDispatchRoute(modelRoutingRegistry, {
+    ...options,
+    reviewOfHarness: options["review-of-harness"],
+    reviewOfProviderFamily: options["review-of-provider-family"],
+  });
   process.stdout.write(formatRoute(route, options.format));
 } catch (error) {
   fail(error instanceof Error ? error.message : String(error));

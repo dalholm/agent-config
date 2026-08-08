@@ -1,5 +1,19 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "providers": {
+    "openai-codex": {
+      "family": "openai-codex",
+      "local": false
+    },
+    "anthropic": {
+      "family": "anthropic",
+      "local": false
+    },
+    "omlx": {
+      "family": "local",
+      "local": true
+    }
+  },
   "defaultRoute": {
     "role": "generalist",
     "tier": "standard"
@@ -7,6 +21,9 @@
   "roles": {
     "generalist": {
       "description": "Direct questions and ordinary mixed work."
+    },
+    "scout": {
+      "description": "Read-only repository discovery, code mapping, and test inventory."
     },
     "researcher": {
       "description": "Gather, verify, and synthesize sources."
@@ -59,6 +76,7 @@
   "harnesses": {
     "codex": {
       "strategy": "explicit",
+      "providerFamily": "openai-codex",
       "tiers": {
         "fast": {
           "provider": "openai-codex",
@@ -93,6 +111,7 @@
     },
     "claude": {
       "strategy": "explicit",
+      "providerFamily": "anthropic",
       "tiers": {
         "fast": {
           "provider": "anthropic",
@@ -113,6 +132,7 @@
     },
     "hermes": {
       "strategy": "preset",
+      "providerFamily": "openai-codex",
       "presetBindings": {
         "fast": {
           "profile": "fast",
@@ -141,13 +161,51 @@
       }
     },
     "gemini": {
-      "strategy": "inherit"
+      "strategy": "inherit",
+      "providerFamily": "inherit"
     },
     "opencode": {
-      "strategy": "inherit"
+      "strategy": "inherit",
+      "providerFamily": "inherit"
     },
     "pi": {
-      "strategy": "inherit"
+      "strategy": "hybrid",
+      "providerFamily": "dynamic",
+      "roleOverrides": {
+        "scout": {
+          "fast": {
+            "provider": "omlx",
+            "model": "qwen3.6-35b-a3b-dflash"
+          }
+        },
+        "coder": {
+          "fast": {
+            "provider": "omlx",
+            "model": "qwen3.6-35b-a3b-dflash"
+          }
+        }
+      }
+    }
+  },
+  "dispatch": {
+    "automaticRoutes": [
+      {
+        "role": "scout",
+        "tier": "fast",
+        "harness": "pi"
+      },
+      {
+        "role": "coder",
+        "tier": "fast",
+        "harness": "pi"
+      }
+    ],
+    "independentReview": {
+      "byAuthorProviderFamily": {
+        "openai-codex": "claude",
+        "anthropic": "codex",
+        "local": "claude"
+      }
     }
   }
 }

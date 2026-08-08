@@ -1,5 +1,6 @@
 export type AgentRole =
   | "generalist"
+  | "scout"
   | "researcher"
   | "coder"
   | "designer"
@@ -8,7 +9,7 @@ export type AgentRole =
 export type AgentTier = "fast" | "standard" | "deep";
 export type ModelRoutingHarness =
   "claude" | "codex" | "gemini" | "hermes" | "opencode" | "pi";
-export type ModelRoutingStrategy = "explicit" | "preset" | "inherit";
+export type ModelRoutingStrategy = "explicit" | "preset" | "inherit" | "hybrid";
 export type ModelRoutingReasoningEffort =
   "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
@@ -20,7 +21,10 @@ export interface ModelRouteTarget {
 }
 
 export interface ModelRoutingRegistry {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
+  readonly providers: Readonly<
+    Record<string, { readonly family: string; readonly local: boolean }>
+  >;
   readonly defaultRoute: { readonly role: AgentRole; readonly tier: AgentTier };
   readonly roles: Readonly<Record<AgentRole, { readonly description: string }>>;
   readonly tiers: Readonly<
@@ -37,6 +41,7 @@ export interface ModelRoutingRegistry {
       ModelRoutingHarness,
       {
         readonly strategy: ModelRoutingStrategy;
+        readonly providerFamily: string;
         readonly tiers?: Readonly<Partial<Record<AgentTier, ModelRouteTarget>>>;
         readonly roleOverrides?: Readonly<
           Partial<
@@ -50,6 +55,18 @@ export interface ModelRoutingRegistry {
       }
     >
   >;
+  readonly dispatch: {
+    readonly automaticRoutes: ReadonlyArray<{
+      readonly role: AgentRole;
+      readonly tier: AgentTier;
+      readonly harness: ModelRoutingHarness;
+    }>;
+    readonly independentReview: {
+      readonly byAuthorProviderFamily: Readonly<
+        Record<string, ModelRoutingHarness>
+      >;
+    };
+  };
 }
 
 export interface ResolveModelRouteOptions {
@@ -59,12 +76,18 @@ export interface ResolveModelRouteOptions {
   readonly preset?: string;
 }
 
+export interface ResolveDispatchRouteOptions extends ResolveModelRouteOptions {
+  readonly reviewOfHarness?: string;
+  readonly reviewOfProviderFamily?: string;
+}
+
 export interface ResolvedModelRoute extends ModelRouteTarget {
   readonly preset?: string;
   readonly role: AgentRole;
   readonly tier: AgentTier;
   readonly harness: ModelRoutingHarness;
   readonly strategy: ModelRoutingStrategy;
+  readonly providerFamily: string;
 }
 
 export class ModelRoutingError extends Error {}
@@ -90,3 +113,11 @@ export function resolveModelRoute(
   registry: ModelRoutingRegistry,
   options: ResolveModelRouteOptions,
 ): ResolvedModelRoute;
+export function resolveDispatchRoute(
+  registry: ModelRoutingRegistry,
+  options: ResolveDispatchRouteOptions,
+): ResolvedModelRoute & {
+  readonly selection: "automatic" | "explicit" | "independent-review";
+  readonly reviewOfHarness?: string;
+  readonly reviewOfProviderFamily?: string;
+};

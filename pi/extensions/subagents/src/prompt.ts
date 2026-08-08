@@ -2,7 +2,7 @@
 
 /** Describes subagent_spawn, including harnesses and the fixed concurrency cap. */
 export const SUBAGENT_SPAWN_TOOL_DESCRIPTION =
-  "Spawn a background subagent: a fully autonomous, headless agent with its own context window and the selected harness's normal host permissions. Choose its logical role and tier; the launch seam resolves those through the canonical model registry before starting pi, Claude Code, or Codex. Explicit model or reasoning values override the registry. Fire-and-forget: this returns immediately with an id. The subagent's final output is queued back to you as a message when it settles, or collect it explicitly with subagent_wait. Children cannot orchestrate more agents/workflows or ask the user, and cannot see this conversation, so the prompt must be self-contained. Only use trusted working directories. Max 4 subagents can be running at once across all harnesses.";
+  "Spawn a background subagent: a fully autonomous, headless agent with its own context window and the selected harness's normal host permissions. Choose its harness, logical role, and tier; Orca or the calling orchestrator owns automatic worker selection. Pi scout/fast and coder/fast routes bind to local Qwen. Reviewer routes require review_of_harness, plus review_of_provider_family for hybrid or inherited authors, and must use the configured independent frontier provider. Reviewer model and reasoning overrides are rejected. Fire-and-forget: this returns immediately with an id. The subagent's final output is queued back to you as a message when it settles, or collect it explicitly with subagent_wait. Children cannot orchestrate more agents/workflows or ask the user, and cannot see this conversation, so the prompt must be self-contained. Only use trusted working directories. Max 4 subagents can be running at once across all harnesses.";
 
 /** Adds background subagent delegation to the parent model's available-tools prompt. */
 export const SUBAGENT_SPAWN_PROMPT_SNIPPET =
@@ -11,7 +11,8 @@ export const SUBAGENT_SPAWN_PROMPT_SNIPPET =
 /** Guides the parent model to delegate standalone tasks and avoid unnecessary blocking waits. */
 export const SUBAGENT_SPAWN_PROMPT_GUIDELINES = [
   "Use subagent_spawn to delegate self-contained tasks that can run in the background; give it a complete, standalone prompt.",
-  "Pick the subagent harness deliberately: pi unless you have a reason to prefer Claude Code or Codex (e.g. the user asked for one, or the task suits that harness).",
+  "Supply the harness selected by the caller or Orca. Use pi for registry-approved local scout/fast or coder/fast work; use a frontier harness when capability, risk, or the user requires it.",
+  "For every reviewer route, pass review_of_harness. Also pass the resolved review_of_provider_family when the author ran through Pi or another hybrid/inherited harness. Never select the author provider family; the routing boundary enforces independent-provider review.",
   "Assign every child an explicit logical role and tier; only pass model or reasoning_effort for an explicit override.",
   "After subagent_spawn, keep working; results arrive automatically. Only call subagent_wait when you cannot proceed without the result.",
 ];
@@ -22,15 +23,19 @@ export const SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS = {
     "Task prompt for the subagent. Must be self-contained: include all needed context, file paths, and what to report back.",
   name: "Short human-readable name for this subagent, shown in listings and the UI",
   harness:
-    'Harness to run the subagent on: "pi" (in-process pi session; inherits this environment), "claude" (Claude Code), or "codex" (Codex CLI). Choose deliberately per task.',
-  role: "Logical work role for this child: generalist, researcher, coder, designer, reviewer, or orchestrator.",
+    'Harness selected by the caller or Orca: "pi", "claude", or "codex".',
+  role: "Logical work role for this child: generalist, scout, researcher, coder, designer, reviewer, or orchestrator.",
   tier: "Capacity tier for this child: fast for routine low-risk work, standard for normal work, or deep for difficult/high-risk work and final review.",
   workingDir:
     "Trusted working directory for the autonomous child (default: current working directory)",
   model:
-    'Explicit model override, interpreted by the chosen harness (pi: "provider/model-id" or model id; claude: model alias like "sonnet"/"opus"; codex: model slug). Omit to use the role/tier registry binding (Pi currently inherits the active model).',
+    'Explicit model override, interpreted by the chosen harness (pi: "provider/model-id" or model id; claude: model alias like "sonnet"/"opus"; codex: model slug). Omit to use the role/tier registry binding; Pi inherits only when that role/tier has no local binding.',
   reasoningEffort:
-    "Explicit reasoning override on the shared scale. Omit to use the role/tier registry binding (Pi currently inherits the active level).",
+    "Explicit reasoning override on the shared scale. Omit to use the role/tier registry binding; Pi inherits only when that role/tier has no configured reasoning.",
+  reviewOfHarness:
+    'Harness that authored the work being reviewed: "pi", "claude", or "codex". Required for reviewer routes and rejected for other roles.',
+  reviewOfProviderFamily:
+    'Resolved provider family that authored the work, such as "local", "anthropic", or "openai-codex". Required when review_of_harness is hybrid or inherited; rejected for other roles.',
 };
 
 /** Builds the subagent_spawn result that tells the parent model how to continue or inspect the child. */

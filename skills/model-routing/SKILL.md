@@ -27,6 +27,7 @@ Choose the role for the next concrete step, not the entire conversation.
 | Role | Use for |
 |------|---------|
 | `generalist` | Direct questions and ordinary mixed work |
+| `scout` | Read-only repository discovery, code mapping, and test inventory |
 | `researcher` | Gathering, verifying, and synthesizing sources |
 | `coder` | Implementation, debugging, refactoring, and tests |
 | `designer` | Product, UX, interface, and system design |
@@ -71,12 +72,15 @@ Resolve before supplying an explicit child model:
 agent-model-route --harness codex --role coder --tier standard
 agent-model-route --harness claude --role researcher --tier deep
 agent-model-route --harness hermes --preset designer
+agent-model-route --role scout --tier fast
+agent-model-route --role reviewer --tier deep --review-of-harness codex
+agent-model-route --role reviewer --tier deep --review-of-harness pi --review-of-provider-family local
 ```
 
 If the installed command is unavailable, read the repository's `model-routing.json`.
 Do not invent a binding.
 
-The registry supports three strategies:
+The registry supports four strategies:
 
 - `explicit`: bind the logical route to a concrete provider, model, and reasoning
   effort.
@@ -84,6 +88,13 @@ The registry supports three strategies:
   do not manufacture unsupported role/tier combinations.
 - `inherit`: retain the active harness model and reasoning. Never reinterpret inherit
   as permission to route through a paid provider.
+- `hybrid`: use explicit local bindings for selected role/tier pairs and otherwise
+  inherit the active harness model. Every explicit hybrid binding is validated as a
+  local provider. Pi uses this for local Qwen workers.
+
+Orca owns automatic dispatch. It resolves `scout/fast` and `coder/fast` without a
+harness so the registry selects the local Pi/Qwen worker, then supplies that harness
+to the execution adapter. Generic spawn interfaces still require an explicit harness.
 
 Explicit user model or profile selection takes precedence, followed by capability and
 independence constraints, project overrides, the canonical registry binding, and then
@@ -93,8 +104,14 @@ a permitted inherited fallback.
 
 - A parent supplies an explicit role and tier whenever the child interface supports
   them. The child does not infer its assignment from a vague title.
+- A reviewer always uses `deep`, rejects model/reasoning overrides, and records both
+  author harness and resolved provider family when the author harness is hybrid or
+  inherited. Reviewer selection is keyed by provider family, not a static harness
+  label.
 - Record the requested role/tier, resolved target, and any fallback in run metadata or
   the result when the harness supports it.
-- For an explicitly independent security or final review, prefer a different model
-  family and provider from the author when one is available. Do not silently downgrade
-  the requested review tier.
+- Every reviewer route must identify the author harness. The dispatch boundary must
+  reject the author harness and provider, then select the configured independent
+  frontier reviewer. Do not silently downgrade the requested review tier.
+- Pi in-process workflows cannot provide independent review; use the cross-harness
+  subagent boundary for review instead.

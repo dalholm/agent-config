@@ -53,6 +53,10 @@ export interface SpawnTask {
   readonly cwd: string;
   readonly role: AgentRole;
   readonly tier: AgentTier;
+  /** Harness that authored the work under review; required for reviewer routes. */
+  readonly reviewOfHarness?: BackendName;
+  /** Resolved provider family of the author; required for hybrid/inherit authors. */
+  readonly reviewOfProviderFamily?: string;
   /**
    * Generic model hint, interpreted per backend:
    * pi: "provider/model-id" or bare model id; claude: model alias;
@@ -65,7 +69,10 @@ export interface SpawnTask {
 }
 
 export interface BoundSpawnTask extends SpawnTask {
-  readonly route: BoundModelRoute;
+  readonly route: BoundModelRoute & {
+    readonly reviewOfHarness?: BackendName;
+    readonly reviewOfProviderFamily?: string;
+  };
 }
 
 export interface SubagentMeta {
@@ -201,7 +208,10 @@ export interface SubagentSnapshot {
   readonly title: string;
   readonly prompt: string;
   readonly cwd: string;
-  readonly route: BoundModelRoute;
+  readonly route: BoundModelRoute & {
+    readonly reviewOfHarness?: BackendName;
+    readonly reviewOfProviderFamily?: string;
+  };
   readonly status: SubagentStatus;
   readonly createdAt: number;
   readonly settledAt?: number;
