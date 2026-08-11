@@ -3,6 +3,8 @@ set -euo pipefail
 
 test_home="$(mktemp -d)"
 trap 'rm -rf "$test_home"' EXIT
+mkdir -p "$test_home/.config/opencode"
+printf '{}\n' > "$test_home/.config/opencode/opencode.jsonc"
 output="$(HOME="$test_home" ./install.sh --dry-run --no-bootstrap)"
 
 grep -Fq "(permission profile: safe)" <<<"$output" || {
@@ -57,6 +59,14 @@ grep -Fq "$test_home/.local/bin/agent-safety" <<<"$output" || {
 
 grep -Fq "$test_home/.config/opencode/AGENTS.md" <<<"$output" || {
   echo "install.sh does not expose shared instructions to OpenCode" >&2
+  exit 1
+}
+
+# OpenCode auto-scans ~/.claude/skills, so the router only resolves there as long as
+# Claude Code happens to be installed. The shared instructions apply to OpenCode too,
+# so the skills they reference must be registered on OpenCode's own terms.
+grep -Fq "$PWD/skills in skills.paths" <<<"$output" || {
+  echo "install.sh does not register shared skills with OpenCode" >&2
   exit 1
 }
 

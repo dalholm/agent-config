@@ -32,6 +32,12 @@ test -L "$test_home/.hermes/skills/model-routing"
 test -L "$test_home/.config/opencode/AGENTS.md"
 test -L "$test_home/.pi/agent/node_modules"
 
+jq -e --arg skills "$repo/skills" '(.skills.paths // []) | index($skills) != null' \
+  "$test_home/.config/opencode/opencode.jsonc" >/dev/null || {
+  echo "install.sh does not register the shared skills dir with OpenCode" >&2
+  exit 1
+}
+
 if jq -e --arg command "$repo/hooks/router-reminder.sh" '
     [.. | objects | .command? // empty] | index($command) != null
   ' "$test_home/.claude/settings.json" >/dev/null; then
@@ -163,5 +169,10 @@ grep -Fq 'approval_policy = "on-request"' "$test_home/.codex/config.toml"
 grep -Fq 'sandbox_mode = "workspace-write"' "$test_home/.codex/config.toml"
 jq -e '.permission == {edit:"ask",bash:"ask",webfetch:"ask"}' \
   "$test_home/.config/opencode/opencode.jsonc" >/dev/null
+if jq -e --arg skills "$repo/skills" '(.skills.paths // []) | index($skills) != null' \
+  "$test_home/.config/opencode/opencode.jsonc" >/dev/null; then
+  echo "uninstall.sh left the repo skills dir registered with OpenCode" >&2
+  exit 1
+fi
 jq -e '.defaultProjectTrust == "ask"' \
   "$test_home/.pi/agent/settings.json" >/dev/null

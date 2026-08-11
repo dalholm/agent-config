@@ -195,6 +195,35 @@ say "Hermes skills:"
 link_skills_to "$HOME/.hermes/skills" "$REPO/skills"
 say ""
 
+# OpenCode discovers skills from its own config, plus an external scan of ~/.claude/
+# and ~/.agents/. Relying on that scan would make the router silently depend on Claude
+# Code staying installed, so register the shared dir explicitly instead. Same caveat as
+# the permission block below: jq cannot rewrite opencode.jsonc once it has comments.
+say "OpenCode skills:"
+OCJ="$HOME/.config/opencode/opencode.jsonc"
+if have jq && [ -f "$OCJ" ]; then
+  if [ "$DRY_RUN" = 1 ]; then
+    say "  would: register $REPO/skills in skills.paths in $OCJ"
+  elif jq -e . "$OCJ" >/dev/null 2>&1; then
+    tmp="$(mktemp)"
+    jq --arg dir "$REPO/skills" '
+      .skills = (.skills // {})
+      | .skills.paths = (
+          if ((.skills.paths // []) | index($dir))
+          then (.skills.paths // [])
+          else ((.skills.paths // []) + [$dir])
+          end
+        )
+    ' "$OCJ" > "$tmp" && mv "$tmp" "$OCJ"
+    say "  opencode: skills.paths includes $REPO/skills"
+  else
+    say "  opencode: $OCJ has comments jq can't parse — add skills.paths manually"
+  fi
+else
+  say "  opencode config not found (or no jq) — skipping"
+fi
+say ""
+
 say "Retired per-prompt workflow router:"
 ROUTER_HOOK="$REPO/hooks/router-reminder.sh"
 SETTINGS="$HOME/.claude/settings.json"

@@ -196,6 +196,24 @@ for skill in "$REPO"/skills/*/; do
     done
   fi
 done
+OCJ="$HOME/.config/opencode/opencode.jsonc"
+if have jq && [ -f "$OCJ" ] && jq -e . "$OCJ" >/dev/null 2>&1; then
+  if [ "$DRY_RUN" = 1 ]; then
+    say "  would: remove $REPO/skills from skills.paths in $OCJ"
+  else
+    tmp="$(mktemp)"
+    jq --arg dir "$REPO/skills" '
+      if .skills.paths then
+        .skills.paths |= map(select(. != $dir))
+        | if (.skills.paths | length) == 0 then del(.skills.paths) else . end
+        | if (.skills | length) == 0 then del(.skills) else . end
+      else
+        .
+      end
+    ' "$OCJ" > "$tmp" && mv "$tmp" "$OCJ"
+    say "  removed repo skills dir from: $OCJ"
+  fi
+fi
 say ""
 
 say "Claude hook:"
