@@ -1,7 +1,27 @@
 {
   "providers": {
+    "spark": {
+      "baseUrl": "http://100.104.221.79:8080/v1",
+      "api": "openai-completions",
+      "apiKey": "none",
+      "compat": {
+        "supportsDeveloperRole": false,
+        "supportsReasoningEffort": false
+      },
+      "models": [
+        {
+          "id": "deepseek-v4-flash",
+          "name": "DeepSeek-V4-Flash-0731 (Spark)",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 262144,
+          "maxTokens": 32768,
+          "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }
+        }
+      ]
+    },
     "omlx": {
-      "baseUrl": "http://127.0.0.1:8000/v1",
+      "baseUrl": "http://100.126.236.85:8000/v1",
       "api": "openai-completions",
       "apiKey": "omlx",
       "compat": {
@@ -11,14 +31,14 @@
       "models": [
         {
           "id": "qwen3.6-35b-a3b-dflash",
-          "name": "Qwen3.6 35B A3B DFlash (local oMLX)",
+          "name": "Qwen3.6 35B A3B DFlash (oMLX)",
           "contextWindow": 32768,
           "maxTokens": 8192
         }
       ]
     },
     "lmstudio": {
-      "baseUrl": "http://127.0.0.1:1234/v1",
+      "baseUrl": "http://100.126.236.85:1234/v1",
       "api": "openai-completions",
       "apiKey": "lmstudio",
       "compat": {
@@ -27,47 +47,12 @@
       },
       "models": [
         {
-          "id": "ornith-1.0-35b",
-          "name": "Ornith 1.0"
-        },
-        {
-          "id": "qwen/qwen3.6-35b-a3b",
-          "name": "Qwen3.6 35B A3B (local)",
-          "contextWindow": 262144,
+          "id": "meta/muse-glimmer",
+          "name": "Muse Glimmer (LM Studio)",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "contextWindow": 131072,
           "maxTokens": 8192
-        },
-        {
-          "id": "google/gemma-4-31b-qat",
-          "name": "Gemma 4 31B QAT (local)",
-          "contextWindow": 262144,
-          "maxTokens": 8192
-        },
-        {
-          "id": "qwen3.6-27b-mlx",
-          "name": "Qwen3.6 27B MLX (local)",
-          "contextWindow": 262144,
-          "maxTokens": 8192
-        },
-        {
-          "id": "gemma-4-12b-it-qat",
-          "name": "Gemma 4 12B IT QAT (local)"
-        }
-      ]
-    },
-    "ollama": {
-      "baseUrl": "http://192.168.10.177:11434/v1",
-      "api": "openai-completions",
-      "apiKey": "ollama",
-      "compat": {
-        "supportsDeveloperRole": false,
-        "supportsReasoningEffort": false
-      },
-      "models": [
-        {
-          "id": "laguna-s-2.1:latest",
-          "name": "Laguna S 2.1 (Spark)",
-          "contextWindow": 262144,
-          "maxTokens": 32768
         }
       ]
     }
