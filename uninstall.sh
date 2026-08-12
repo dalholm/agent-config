@@ -264,13 +264,19 @@ remove_repo_symlink "$HOME/.pi/agent/skills"
 remove_repo_symlink "$HOME/.pi/agent/node_modules"
 PI_SETTINGS="$HOME/.pi/agent/settings.json"
 if have jq && [ -f "$PI_SETTINGS" ]; then
+  PI_AGENT_SKILL_EXCLUDE_PREFIX="!$HOME/.agents/skills/{"
   if [ "$DRY_RUN" = 1 ]; then
-    say "  would: remove $REPO/skills from skills[] and reset the repo theme in $PI_SETTINGS"
+    say "  would: remove $REPO/skills and its ~/.agents duplicate exclusions from skills[], then reset the repo theme in $PI_SETTINGS"
   else
     tmp="$(mktemp)"
-    jq --arg skills "$REPO/skills" '
+    jq \
+      --arg skills "$REPO/skills" \
+      --arg agents_prefix "$PI_AGENT_SKILL_EXCLUDE_PREFIX" '
       if .skills then
-        .skills |= map(select(. != $skills))
+        .skills |= map(select(
+          . != $skills and
+          ((startswith($agents_prefix) and endswith("}/**")) | not)
+        ))
         | if (.skills | length) == 0 then del(.skills) else . end
       else
         .

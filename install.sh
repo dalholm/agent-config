@@ -313,15 +313,37 @@ fi
 # from the retired Pi setup while preserving unrelated user packages.
 if have jq; then
   PIS="$HOME/.pi/agent/settings.json"
+  PI_AGENT_SKILL_NAMES=()
+  while IFS= read -r skill_md; do
+    PI_AGENT_SKILL_NAMES+=("$(basename "$(dirname "$skill_md")")")
+  done < <(find "$REPO/skills" -mindepth 2 -maxdepth 2 -type f -name SKILL.md | sort)
+  PI_AGENT_SKILL_EXCLUDE=""
+  if [ "${#PI_AGENT_SKILL_NAMES[@]}" -gt 0 ]; then
+    PI_AGENT_SKILL_CSV="$(IFS=,; printf '%s' "${PI_AGENT_SKILL_NAMES[*]}")"
+    PI_AGENT_SKILL_EXCLUDE="!$HOME/.agents/skills/{$PI_AGENT_SKILL_CSV}/**"
+  fi
+  PI_AGENT_SKILL_EXCLUDE_PREFIX="!$HOME/.agents/skills/{"
   run "mkdir -p '$HOME/.pi/agent'"
   if [ "$DRY_RUN" = 1 ]; then
-    say "  would: register $REPO/skills, set theme=github-dark-default, and remove retired Pi packages in $PIS"
+    say "  would: register $REPO/skills, prefer repo-owned skills over ~/.agents duplicates, set theme=github-dark-default, and remove retired Pi packages in $PIS"
   else
     [ -f "$PIS" ] || echo '{}' > "$PIS"
     tmp="$(mktemp)"
-    jq --arg p "$REPO/skills" --arg old "$HOME/develop/misc/skills/skills" '
-      .skills = ((.skills // []) | map(select(. != $old))) |
+    jq \
+      --arg p "$REPO/skills" \
+      --arg old "$HOME/develop/misc/skills/skills" \
+      --arg agents_exclude "$PI_AGENT_SKILL_EXCLUDE" \
+      --arg agents_prefix "$PI_AGENT_SKILL_EXCLUDE_PREFIX" '
+      .skills = ((.skills // []) | map(select(
+        . != $old and
+        . != $p and
+        ((startswith($agents_prefix) and endswith("}/**")) | not)
+      ))) |
       (if (.skills | index($p)) then . else .skills += [$p] end) |
+      (if $agents_exclude != "" and ((.skills | index($agents_exclude)) | not)
+       then .skills += [$agents_exclude]
+       else .
+       end) |
       .theme = "github-dark-default" |
       if .packages then
         .packages |= map(select(

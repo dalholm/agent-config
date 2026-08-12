@@ -27,6 +27,9 @@ real need and an API key has been configured.
 Pi reads the same `AGENTS.md` as the other coding agents. The installer also registers
 the repository's top-level `skills/` directory in Pi settings, so the complexity
 router and the focused engineering skills remain shared across harnesses.
+Pi also auto-discovers `~/.agents/skills`. The installer disables only names already
+owned by this repository to avoid collision warnings while preserving skills that
+exist solely in `~/.agents/skills`.
 
 Pi-specific extensions and skills stay in this directory. General agent instructions
 stay at the repository root.
