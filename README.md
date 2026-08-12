@@ -126,6 +126,10 @@ sessionshistorik eller externa verktyg som Node/Pi.
 Repoet innehåller fokuserade skills för bland annat TDD, implementation, diagnostik,
 prototyper, grillning, domänmodellering, PRD:er, issues, review och QA. Installern
 symlinkar samma skills till Claude Code och Codex; Pi registrerar samma katalog.
+Orca-relaterade discovery-skills som `orca-cli`, `orchestration`, emulatorstyrning,
+Linear och computer-use är också repoägda och följer därför med till andra datorer.
+De laddar sin fulla, versionsmatchade referens från den installerade `orca`-binären,
+så Orca behöver fortfarande vara installerat separat på målmaskinen.
 
 Pi har dessutom sitt eget extension- och minnessystem — se `pi/`.
 

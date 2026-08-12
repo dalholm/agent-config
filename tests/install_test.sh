@@ -32,6 +32,31 @@ grep -Fq "$test_home/.hermes/skills/model-routing" <<<"$output" || {
   exit 1
 }
 
+portable_orca_skills=(
+  computer-use
+  linear-tickets
+  orca-cli
+  orca-emulator
+  orca-emulator-android
+  orca-linear
+  orca-per-workspace-env
+  orchestration
+)
+for skill in "${portable_orca_skills[@]}"; do
+  test -f "$PWD/skills/$skill/SKILL.md" || {
+    echo "repository does not own the portable $skill skill" >&2
+    exit 1
+  }
+  grep -Fq "$test_home/.claude/skills/$skill" <<<"$output" || {
+    echo "install.sh does not link $skill into Claude skills" >&2
+    exit 1
+  }
+  grep -Fq "$test_home/.hermes/skills/$skill" <<<"$output" || {
+    echo "install.sh does not link $skill into Hermes skills" >&2
+    exit 1
+  }
+done
+
 if grep -Fq "merge UserPromptSubmit hook" <<<"$output"; then
   echo "install.sh still injects the workflow router into every prompt" >&2
   exit 1
