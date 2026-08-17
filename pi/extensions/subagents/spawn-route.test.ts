@@ -55,7 +55,7 @@ test("bindSpawnTask uses the explicit Pi harness for a local scout", () => {
   const bound = bindSpawnTask("pi", task({ role: "scout", tier: "fast" }));
 
   assert.equal(bound.route.harness, "pi");
-  assert.equal(bound.model, "qwen3.6-35b-a3b-dflash");
+  assert.equal(bound.model, "qwen3.8-27b");
 });
 
 test("bindSpawnTask records the inherited provider family for Pi work", () => {

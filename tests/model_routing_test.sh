@@ -21,7 +21,7 @@ const localScout = routing.resolveDispatchRoute(routing.modelRoutingRegistry, {
 });
 assert.equal(localScout.harness, "pi");
 assert.equal(localScout.provider, "omlx");
-assert.equal(localScout.model, "qwen3.6-35b-a3b-dflash");
+assert.equal(localScout.model, "qwen3.8-27b");
 assert.equal(localScout.selection, "automatic");
 assert.throws(
   () => routing.resolveDispatchRoute(routing.modelRoutingRegistry, {

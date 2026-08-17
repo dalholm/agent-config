@@ -15,7 +15,7 @@ test("Pi binds explicit local scout work to Qwen", () => {
       strategy: "hybrid",
       providerFamily: "local",
       provider: "omlx",
-      model: "qwen3.6-35b-a3b-dflash",
+      model: "qwen3.8-27b",
       modelSource: "registry",
       reasoningSource: "inherit",
     },

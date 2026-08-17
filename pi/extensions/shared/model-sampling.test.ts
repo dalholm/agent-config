@@ -3,15 +3,12 @@ import { test } from "node:test";
 import { applyRecommendedSampling } from "./model-sampling.ts";
 
 test("applies the recommended sampler for each retained local model", () => {
-  assert.deepEqual(
-    applyRecommendedSampling({ model: "qwen3.6-35b-a3b-dflash" }),
-    {
-      model: "qwen3.6-35b-a3b-dflash",
-      temperature: 0.6,
-      top_p: 0.95,
-      top_k: 20,
-    },
-  );
+  assert.deepEqual(applyRecommendedSampling({ model: "qwen3.8-27b" }), {
+    model: "qwen3.8-27b",
+    temperature: 0.6,
+    top_p: 0.95,
+    top_k: 20,
+  });
   assert.deepEqual(applyRecommendedSampling({ model: "meta/muse-glimmer" }), {
     model: "meta/muse-glimmer",
     temperature: 1,

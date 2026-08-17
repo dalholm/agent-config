@@ -5,7 +5,7 @@ type SamplingPreset = {
 };
 
 const RECOMMENDED_SAMPLING: Readonly<Record<string, SamplingPreset>> = {
-  "qwen3.6-35b-a3b-dflash": {
+  "qwen3.8-27b": {
     temperature: 0.6,
     top_p: 0.95,
     top_k: 20,
