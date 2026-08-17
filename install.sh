@@ -296,6 +296,15 @@ link "$REPO/pi/themes" "$HOME/.pi/agent/themes"
 link "$REPO/pi/skills" "$HOME/.pi/agent/skills"
 link "$REPO/pi/node_modules" "$HOME/.pi/agent/node_modules"
 
+# Oh My Pi keeps its own agent home but reads the same models.json provider format, so
+# the retained local models reach both runtimes from one file. Only link when OMP is
+# actually installed — an empty ~/.omp would otherwise look like a broken install.
+if have omp; then
+  say ""
+  say "Oh My Pi:"
+  link "$REPO/pi/models.json" "$HOME/.omp/agent/models.json"
+fi
+
 if [ "$BOOTSTRAP" = 1 ]; then
   if have npm; then
     run "npm install --prefix '$REPO/pi'"

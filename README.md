@@ -54,7 +54,9 @@ Scriptet symlinkar instruktionsfilerna, lägger skills i `~/.claude/skills/`,
 `~/.codex/skills/` och `~/.hermes/skills/`, tar bort den pensionerade router-hooken
 från `~/.claude/settings.json` (med `jq`; annars skrivs en manuell instruktion ut),
 installerar katastrofhooken och länkar den repoägda Pi-konfigurationen till
-`~/.pi/agent/`. Det länkar också
+`~/.pi/agent/`. Finns `omp` (Oh My Pi) installerat länkas `pi/models.json` även till
+`~/.omp/agent/models.json`, så att de lokala modellerna syns i båda runtimes från
+samma fil. Det länkar också
 `model-routing.json` och `safety-policy.json` till `~/.config/agent-config/` samt
 installerar `agent-model-route` och `agent-safety` i `~/.local/bin/`. Starta om
 agenten efteråt.

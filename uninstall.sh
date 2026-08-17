@@ -262,6 +262,7 @@ remove_repo_symlink "$HOME/.pi/agent/extensions"
 remove_repo_symlink "$HOME/.pi/agent/themes"
 remove_repo_symlink "$HOME/.pi/agent/skills"
 remove_repo_symlink "$HOME/.pi/agent/node_modules"
+remove_repo_symlink "$HOME/.omp/agent/models.json"
 PI_SETTINGS="$HOME/.pi/agent/settings.json"
 if have jq && [ -f "$PI_SETTINGS" ]; then
   PI_AGENT_SKILL_EXCLUDE_PREFIX="!$HOME/.agents/skills/{"
